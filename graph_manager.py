@@ -4,6 +4,8 @@ class GraphManager(object):
     The GraphManager manages a 'directed acyclic graph' of nodes and recalculates
     them efficiently as the inputs to those nodes changes.
 
+    See the project's website for full details: http://richard-shepherd.github.io/calculation_graph/
+
     The graph is built by adding nodes using the add_node() method. The add_parent()
     method, within the GraphNode class, is used to indicate that a nodes depends on
     some other node. The needs_calculation() method of this class is used to indicate
