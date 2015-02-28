@@ -1,5 +1,5 @@
 
-class GrapManager(object):
+class GraphManager(object):
     """
     The GraphManager manages a 'directed acyclic graph' of nodes and recalculates
     them efficiently as the inputs to those nodes changes.
