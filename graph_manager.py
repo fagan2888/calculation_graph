@@ -114,6 +114,10 @@ class GraphManager(object):
         # cycle, keyed by ID...
         self._changed_nodes = {}
 
+        # The collection of IDs of nodes that have been added since the last
+        # calculation cycle...
+        self._new_node_ids = set()
+
         # True if links have changed, and GC may be required
         self._gc_required = False
 
@@ -124,9 +128,9 @@ class GraphManager(object):
         """
         The 'destructor'.
         """
-        self.delete_nodes()
+        self.dispose_nodes()
 
-    def delete_nodes(self):
+    def dispose_nodes(self):
         """
          We dispose all the nodes and we remove them from the dictionary.
         """
@@ -142,32 +146,11 @@ class GraphManager(object):
         Adds a node to the graph.
         """
         if self.has_node(node.id):
-            throw Exception("Node %s already exists", nodeID.c_str());
-        else
-        {
-            m_nodes[nodeID] = node;
-            needsCalculation(node);
-            m_newNodeIDs.insert(node->getID());
-        }
-/****************************************************************************
- addNode
- -------
-****************************************************************************/
-void GraphManager::addNode(GraphNode* node)
-{
-	const std::string& nodeID = node->getID();
-
-	if (hasNode(nodeID))
-	{
-		throw Exception("Node %s already exists", nodeID.c_str());
-	}
-	else
-	{
-		m_nodes[nodeID] = node;
-		needsCalculation(node);
-		m_newNodeIDs.insert(node->getID());
-	}
-}
+            raise GraphException("Node " + node.id + " already exists")
+        else:
+            self._nodes[node.id] = node
+            self.needs_calculation(node)
+            self.new_node_ids.add(node.id)
 
 /*===========================================================================
  deleteNode
