@@ -2,6 +2,8 @@
   <dictionary name="richard">
     <words>
       <w>collectable</w>
+      <w>gc'd</w>
+      <w>stringified</w>
       <w>stringifyable</w>
     </words>
   </dictionary>
