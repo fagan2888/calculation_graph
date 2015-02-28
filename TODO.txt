@@ -1,0 +1,8 @@
+TODO: Is there some way to auto-generate IDs?
+
+TODO: __init__ can only take the descriptive params. When nodes are created, the creation can set ID and environment on the base class.
+
+TODO: Have optional make_id, if args are not easily stringifyable.
+
+TODO: We can get the class name using Class.__name__
+
