@@ -37,6 +37,7 @@ class GraphNode(object):
     ----------------------------------------------
     Nodes have an internal unique ID made up from their
 
+
     Quality
     -------
     """

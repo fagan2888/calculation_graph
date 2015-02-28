@@ -6,3 +6,4 @@ TODO: Have optional make_id, if args are not easily stringifyable.
 
 TODO: We can get the class name using Class.__name__
 
+
