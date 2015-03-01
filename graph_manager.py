@@ -35,6 +35,12 @@ class GraphManager(object):
         # New parents are parents that have been added to nodes during this calculation cycle.
         self._new_parents_this_calculation_cycle = {}
 
+        # A dictionary of (new parent node) -> (set of child nodes).
+        # If one of the above nodes is calculated after it is added as a parent,
+        # in the same calculation cycle, then we need to notify the relevant
+        # children in the next calculation cycle...
+        self._nodes_with_updated_late_parents = {}
+
         # True if links have changed, and GC may be required
         self._gc_required = False
 
@@ -294,60 +300,43 @@ class GraphManager(object):
 
         return results
 
-/*==============================================================================
- parentsUpdated
- --------------
- Called by nodes after their dependencies have changes. We are passed the
- collection of new parents.
-==============================================================================*/
-void GraphManager::parentsUpdated(GraphNode* node, const NodeSet& newParents)
-{
-	# We store a map of new-parents -> child nodes.
-	# (See heading comment for more details.)
+    def parents_updated(self, node, new_parents):
+        """
+        Called by nodes after their dependencies have changes. We are passed the
+        collection of new parents.
+        """
+        # We store a map of new-parents -> child nodes.
 
-	# We only need to store new parents if we are in the
-	# calculation cycle...
-	if(m_isCalculating == false)
-	{
-		return
-	}
+        # We only need to store new parents if we are in the
+        # calculation cycle...
+        if not self._is_calculating:
+            return
 
-	# We note that the node passed in was updated by the parents
-	# passed in...
-	NodeSet::const_iterator it
-	for(it=newParents.begin() it!=newParents.end() ++it)
-	{
-		# We find the collection of child nodes for this
-		# new parent and add the child node to it...
-		GraphNode* pParent = *it
-		m_mapNewParentsThisCalculationCycle[pParent].insert(node)
-	}
-}
+        # We note that the node passed in was updated by the parents
+        # passed in...
+        for parent in new_parents:
+            # We find the collection of child nodes for this
+            # new parent and add the child node to it...
+            if parent not in self._new_parents_this_calculation_cycle:
+                self._new_parents_this_calculation_cycle[parent] = set()
+            self._new_parents_this_calculation_cycle[parent].add(node)
 
-/*==============================================================================
- nodeCalculated
- --------------
- Called when a node is calculated.
-==============================================================================*/
-void GraphManager::nodeCalculated(GraphNode* node)
-{
-	# We check if the node is a 'late-parent'.
-	# (See heading comment for details.)
-	MapNewParents::iterator it = m_mapNewParentsThisCalculationCycle.find(node)
-	if(it == m_mapNewParentsThisCalculationCycle.end())
-	{
-		# This node has not been added as a parent to any other
-		# nodes (yet) in this calculation cycle...
-		return
-	}
+    def node_calculated(self, node):
+        """
+        Called when a node is calculated.
+        """
+        # We check if the node is a 'late-parent'.
+        if node not in self._new_parents_this_calculation_cycle:
+            # This node has not been added as a parent to any other
+            # nodes (yet) in this calculation cycle...
+            return
 
-	# The node has been added as a parent to other nodes, but it has been
-	# calculated after them. So it is a 'late-parent'. We find the
-	# collection of child nodes that should have been triggered already
-	# and note that they need to be calculated in the next cycle...
-	NodeSet& childNodes = it->second
-	m_nodesWithUpdatedLateParents[node] = childNodes
-}
+        # The node has been added as a parent to other nodes, but it has been
+        # calculated after them. So it is a 'late-parent'. We find the
+        # collection of child nodes that should have been triggered already
+        # and note that they need to be calculated in the next cycle...
+        child_nodes = self._new_parents_this_calculation_cycle[node]
+        self._nodes_with_updated_late_parents[node] = child_nodes
 
 /*==============================================================================
  markNodesWithUpdatedLateParents
