@@ -6,98 +6,7 @@ class GraphManager(object):
     The GraphManager manages a 'directed acyclic graph' of nodes and recalculates
     them efficiently as the inputs to those nodes changes.
 
-    See: http:#richard-shepherd.github.io/calculation_graph/
-
-    The graph is built by adding nodes using the add_node() method. The add_parent()
-    method, within the GraphNode class, is used to indicate that a nodes depends on
-    some other node. The needs_calculation() method of this class is used to indicate
-    that the output value of the specified node must be calculated the next time the
-    graph is calculated.
-
-    When the GraphManager determines that a node needs calculation, its calculate()
-    method is called. This will only be called after any parent nodes have been
-    calculated. So the parent data needed by any node will always be up-to-date at
-    the point that its calculate() method is called.
-
-    Calculation order of nodes
-    --------------------------
-    Calculation order is worked out like this:
-
-    On calling 'calculate' on this class, the invalidate() method is called on each
-    node for which needs_calculation() has been called since the last invocation of
-    calculate(). The invalidate() method of the graph node, increments an
-    invalidation counter within the node, and then recursively calls invalidate()
-    on any nodes which have specified the current node as a parent.
-
-    The calculate() method for this class then calls the validate() method on each
-    node that it called invalidate() on. The validate() method of the graph node
-    decrements the invalidation counter for the node and, if the resultant counter
-    value is zero, calls the calculate() method for the class. This means that a node
-    will only be calculated when all routes to it have been calculated.
-
-    The invalidation count on a node is initialized to zero when the node is
-    constructed and should always be zero on completion of the graph calculate()
-    method.
-
-    Not thread-safe
-    ---------------
-    The GraphManager is not thread safe. The graph must not be concurrently
-    modified by multiple threads.
-
-    Garbage collection
-    ------------------
-    The GraphManager implements its own 'garbage-collection' of unused nodes.
-
-    Even though Python has its own GC, it is not guaranteed to run as soon as
-    a node is no longer needed. The GC here calls the dispose() method on a
-    node when it is no longer referred to by any other nodes, to make sure it
-    does not perform any calculations or consume resources when it is no longer
-    an active part of the graph.
-
-    Important seed nodes should be marked as GraphNode.GCType.NON_COLLECTABLE. You
-    can do this either when you create them with GraphManager.get_node() or after
-    creating them by calling set_gc_type(GraphNode.GCType.NON_COLLECTABLE) on a node.
-
-    GC will only happen after links between nodes have been broken. This happens
-    when you call remove_parent() or remove_parents() on a node. When this happens,
-    the GC will take place after the next graph calculation.
-
-    The GC algorithm starts with the set of non-collectable nodes, and finds
-    all parent nodes. These will not be collected. Any remaining nodes will be
-    removed from the graph and disposed.
-
-    To remove nodes from the graph, you should call remove_node(). This marks the
-    node as COLLECTABLE and allows it to be collected at the next GC cycle.
-    Note: If it is used by other non-collectable nodes, it will not be deleted.
-
-    Handling graph shape-changes during calculation
-    -----------------------------------------------
-    Sometimes the graph changes shape while it is calculating. Some nodes reset
-    their dependencies as part of the calculation cycle in response to parent
-    nodes updating. We need to calculate the graph correctly in these cases.
-
-    If a node connects to a parent during the calculation cycle, the graph may
-    not be calculated in the right order during that cycle. To ensure that the
-    graph is calculated correctly we perform this logic:
-
-    1. When nodes reset their dependencies they note which parent nodes
-    were added, and register this with the graph-manager.
-
-    2. The graph-manager keeps a map of new-parent-nodes to the child-nodes
-    they have been added to.
-
-    3. As nodes are calculated, they notify the graph-manager. If the node is
-    a new-parent, then it has been calculated too late during this cycle.
-    This node is a 'late-parent'.
-
-    4. For late-parents, we find the collection of child-nodes that added them
-    in this cycle. We mark these nodes for calculation in the next cycle.
-    These nodes are 'early-children'.
-
-    5. When we calculate the early-children in the next cycle, we make sure that
-    their late-parents are included in their parents-updated list. This ensures
-    that anything that should be triggered by the parent node updating is
-    triggered.
+    See: http:#richard-shepherd.github.io/calculation_graph/GraphManager.html
     """
     def __init__(self):
         """
@@ -108,10 +17,14 @@ class GraphManager(object):
 
         # The collection of non-collectable nodes, keyed by ID. These will
         # not be GC'd even if there are no links to them...
-        self._non_collectable_nodes = {}
+        self._non_collectable_nodes = set()
 
         # The collection of nodes that have changed since the last calculation cycle...
         self._changed_nodes = set()
+
+        # Nodes which have a collection of updated-parents. These need to
+        # be cleared at the end of the calculation cycle...
+        self._nodes_with_updated_parents = set()
 
         # The collection of IDs of nodes that have been added since the last
         # calculation cycle...
@@ -215,7 +128,6 @@ class GraphManager(object):
     def calculate(self):
         """
         Calculates the graph.
-        See: http:#richard-shepherd.github.io/calculation_graph/
         """
         # Sets the calculating flag true for the lifetime of this function...
         self._is_calculating = True
@@ -249,116 +161,84 @@ class GraphManager(object):
         self._mark_nodes_with_updated_late_parents()
 
         # We garbage collect any unused nodes...
-        self.perform_gc()
+        self._perform_gc()
 
         self._is_calculating = False
 
-/*===========================================================================
- updateGCInfoForNode
- -------------------
- We update our set of non-collectable nodes depending on whether the node
- passed in is collectable or not.
-===========================================================================*/
-void GraphManager::updateGCInfoForNode(GraphNode* pNode)
-{
-	if(pNode->m_gcType == GraphNode::NON_COLLECTABLE)
-	{
-		m_nonCollectableNodes.insert(pNode)
-	}
-	else
-	{
-		m_nonCollectableNodes.erase(pNode) # Note: this can be called even if the node is not in the set.
-	}
-}
+    def update_gc_info_for_node(self, node):
+        """
+        We update our set of non-collectable nodes depending on whether the node
+        passed in is collectable or not.
+        """
+        if node.gc_type == GraphNode.NON_COLLECTABLE:
+            self._non_collectable_nodes.add(node)
+        else:
+            if node in self._non_collectable_nodes:
+                self._non_collectable_nodes.remove(node)
 
+    def _perform_gc(self):
+        """
+        Cleans up unreferenced nodes.
+        """
+        if not self._gc_required:
+            return
+        self._gc_required = False
 
-/*===========================================================================
- performGC
- ---------
- Cleans up unreferenced nodes if GC is enabled.
-===========================================================================*/
-void GraphManager::performGC()
-{
-	if(m_gcEnabled == false || m_gcRequired == false)
-	{
-		return
-	}
-	m_gcRequired = false
+        # To perform GC we start with two collections of nodes:
+        # - The set of all nodes in the graph ("all-nodes")
+        # - The set of all non-collectable nodes ("non-collectable nodes")
+        #
+        # For each non-collectable node, we up walk the graph starting with
+        # the non-collectable node to find all its parent nodes. Any nodes
+        # we find are removed from the all-nodes collection.
+        #
+        # When we have processed all the non-collectable nodes, any nodes remaining
+        # in the all-nodes collection are ones which are not the ancestor of any
+        # non-collectable node. They are then all removed from the graph and deleted.
 
-	# To perform GC we start with two collections of nodes:
-	# - The set of all nodes in the graph ("all-nodes")
-	# - The set of all non-collectable nodes ("non-collectable nodes")
-	#
-	# For each non-collectable node, we up walk the graph starting with
-	# the non-collectable node to find all its parent nodes. Any nodes
-	# we find are removed from the all-nodes collection.
-	#
-	# When we have processed all the non-collectable nodes, any nodes remaining
-	# in the all-nodes collection are ones which are not the ancestor of any
-	# non-collectable node. They are then all removed from the graph and deleted.
+        # We find the set of all nodes in the graph...
+        all_nodes = set(self._nodes.values())
 
-	# We find the set of all nodes in the graph...
-	NodeSet allNodes
-	NodeMap::const_iterator itm
-	for(itm=m_nodes.begin() itm!=m_nodes.end() ++itm)
-	{
-		allNodes.insert(itm->second)
-	}
+        # We remove all ancestors of non-collectable nodes from the set of all-nodes...
+        for node in self._non_collectable_nodes:
+            self._remove_parent_nodes_from_set(node, all_nodes)
 
-	# We remove all ancestors of non-collectable nodes from the set of all-nodes...
-	NodeSet::const_iterator it
-	for(it=m_nonCollectableNodes.begin() it!=m_nonCollectableNodes.end() ++it)
-	{
-		GraphNode* node = *it
-		removeParentNodesFromSet(node, allNodes)
-	}
+        # Any nodes remaining can be deleted...
+        for node in all_nodes:
+            self._dispose_and_remove_node(node)
 
-	# Any nodes remaining can be deleted...
-	NodeSet::const_iterator itd
-	for(itd=allNodes.begin() itd!=allNodes.end() ++itd)
-	{
-		GraphNode* node = *itd
-		deleteAndRemoveNode(node)
-	}
-}
+    def _remove_parent_nodes_from_set(self, node, nodes):
+        """
+        Removes the node passed in and all its parent nodes from the node-set
+        passed in. This will recursively remove all ancestor nodes of the node
+        from the set.
+        """
+        # We remove the node itself...
+        if node in nodes:
+            nodes.remove(node)
 
+        # We loop through the parents of the node, removing them...
+        parents = node.parents
+        for parent in parents:
+            self._remove_parent_nodes_from_set(parent, nodes)
 
-/*===========================================================================
- removeParentNodesFromSet
- ------------------------
- Removes the node passed in and all its parent nodes from the node-set
- passed in. this will recursively remove all ancestor nodes of the node
- from the set.
-===========================================================================*/
-void GraphManager::removeParentNodesFromSet(GraphNode* node, NodeSet& nodes)
-{
-	# We erase the node itself...
-	nodes.erase(node)
+    def _dispose_and_remove_node(self, node):
+        """
+        Removes the node passed in from the graph and disposes it.
+        """
+        if node.node_id in self._nodes:
+            del self._nodes[node.node_id]
 
-	# We loop through the parents of the node, erasing them...
-	const NodeSet& parents = node->m_parents
-	NodeSet::const_iterator it
-	for(it=parents.begin() it!=parents.end() ++it)
-	{
-		GraphNode* parent = *it
-		removeParentNodesFromSet(parent, nodes)
-	}
-}
+        if node in self._changed_nodes:
+            self._changed_nodes.remove(node)
 
-/*===========================================================================
- deleteAndRemoveNode
- -------------------
- Removes the node passed in from the graph and deletes it.
-===========================================================================*/
-void GraphManager::deleteAndRemoveNode(GraphNode* node)
-{
-	const std::string& id = node->getID()
-	m_nodes.erase(id)
-	m_changedNodes.erase(node)
-	m_nonCollectableNodes.erase(node)
-	m_nodesWithUpdatedParents.erase(node)
-	delete node
-}
+        if node in self._non_collectable_nodes:
+            self._non_collectable_nodes.remove(node)
+
+        if node in self._nodes_with_updated_parents:
+            self._nodes_with_updated_parents.remove(node)
+
+        node.dispose()
 
 
 /*===========================================================================
