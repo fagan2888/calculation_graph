@@ -6,7 +6,7 @@ class GraphManager(object):
     The GraphManager manages a 'directed acyclic graph' of nodes and recalculates
     them efficiently as the inputs to those nodes changes.
 
-    See the project's website for full details: http://richard-shepherd.github.io/calculation_graph/
+    See: http:#richard-shepherd.github.io/calculation_graph/
 
     The graph is built by adding nodes using the add_node() method. The add_parent()
     method, within the GraphNode class, is used to indicate that a nodes depends on
@@ -110,13 +110,16 @@ class GraphManager(object):
         # not be GC'd even if there are no links to them...
         self._non_collectable_nodes = {}
 
-        # The collection of nodes that have changed since the last calculation
-        # cycle, keyed by ID...
-        self._changed_nodes = {}
+        # The collection of nodes that have changed since the last calculation cycle...
+        self._changed_nodes = set()
 
         # The collection of IDs of nodes that have been added since the last
         # calculation cycle...
         self._new_node_ids = set()
+
+        # A dictionary of (new parent node) -> (set of child nodes).
+        # New parents are parents that have been added to nodes during this calculation cycle.
+        self._new_parents_this_calculation_cycle = {}
 
         # True if links have changed, and GC may be required
         self._gc_required = False
@@ -145,208 +148,110 @@ class GraphManager(object):
         """
         Adds a node to the graph.
         """
-        if self.has_node(node.id):
-            raise GraphException("Node " + node.id + " already exists")
+        if self.has_node(node.node_id):
+            raise GraphException("GraphNode " + node.node_id + " already exists")
         else:
-            self._nodes[node.id] = node
+            self._nodes[node.node_id] = node
             self.needs_calculation(node)
-            self.new_node_ids.add(node.id)
+            self.new_node_ids.add(node.node_id)
 
-/*===========================================================================
- deleteNode
- ----------
-===========================================================================*/
-void GraphManager::deleteNode(GraphNode* node)
-{
-	if(node != NULL)
-	{
-		deleteNode(node->getID());
-	}
-}
+    def release_node(self, node):
+        """
+        Removes interest in a node from one client. If the node's ref-count goes to
+        zero, the node will be GC'd.
+        """
+        # You are allowed to release a None node. It's just a "no-op"...
+        if(node is None):
+            return
 
-/****************************************************************************
- deleteNode
- ----------
-****************************************************************************/
-void GraphManager::deleteNode(const std::string& id)
-{
-	NodeMap::iterator it = m_nodes.find(id);
-	if(it == m_nodes.end())
-	{
-		// The node isn't in the graph...
-		return;
-	}
+        # We decrease the ref-count, and see if we can mark the node as needing collection...
+        node.release_gc_ref_count()
+        ref_count = node.get_gc_ref_count()
+        if ref_count < 0:
+            raise GraphException("GraphNode " + node.node_id + " has ref-count < 0")
 
-	GraphNode* pNode = it->second;
-	if(m_gcEnabled == true)
-	{
-		std::string message = Utility::format("You cannot delete nodes in a graph using GC. (Node being deleted, id=%s.)", id.c_str());
-		throw Exception(message);
-	}
-	else
-	{
-		// GC is not enabled, so we just remove and delete the node...
-		deleteAndRemoveNode(pNode);
-	}
-}
+        if ref_count == 0:
+            # The node has no references to it, so we mark it as collectable
+            # and set the flag so that a GC cycle will take place...
+            node.set_gc_type(GraphNode.COLLECTABLE)
+            self._gc_required = True
 
-void GraphManager::releaseNode(GraphNode* node)
-{
-	// You are allowed to release a NULL node. It's just a "no-op"...
-	if(node == NULL)
-	{
-		return;
-	}
+    def get_node(self, node_id):
+        """
+        Returns the node with the ID passed in.
+        Throws an exception if the node does not exist in the graph.
+        """
+        if node_id in self._nodes:
+            return self._nodes[node_id]
+        else:
+            raise GraphException("No such graph-node " + node_id)
 
-	// You can only release nodes if GC is being used...
-	if(m_gcEnabled == false)
-	{
-		throw Exception("You cannot release a node with GC disbaled in the GraphManager.");
-	}
+    def has_node(self, node_id):
+        """
+        Returns True if a node is in the graph for the ID passed in, False otherwise.
+        """
+        if node_id not in self._nodes:
+            return False
+        if self._nodes[node_id] is None:
+            return False
+        return True
 
-	// We decrease the ref-count, and see if we can mark the node as
-	// needing collection...
-	node->releaseGCRefCount();
-	int refCount = node->getGCRefCount();
-	if(refCount < 0)
-	{
-		std::string message = Utility::format("Node %s has ref-count < 0.", node->getID().c_str());
-		throw Exception(message);
-	}
+    def find_node(self, node_id):
+        """
+        Returns the node for the ID passed in, or None if it is not in the graph.
+        """
+        if self.has_node(node_id):
+            return self._nodes[node_id]
+        else:
+            return None
 
-	if(refCount == 0)
-	{
-		// The node has no references to it, so we mark it as collectable
-		// and set the flag so that a GC cycle will take place...
-		node->setGCType(GraphNode::COLLECTABLE);
-		m_gcRequired = true;
-	}
-}
+    def needs_calculation(self, node):
+        """
+        Marks the node passed in for (re)calculation.
+        """
+        node.needs_calculation = True
+        self._changed_nodes.add(node)
 
+    def calculate(self):
+        """
+        Calculates the graph.
+        See: http:#richard-shepherd.github.io/calculation_graph/
+        """
+        # Sets the calculating flag true for the lifetime of this function...
+        self._is_calculating = True
 
-/****************************************************************************
- getNode
- -------
-****************************************************************************/
-GraphNode* GraphManager::getNode(const std::string& id) const
-{
-	NodeMap::const_iterator iter = m_nodes.find(id);
+        # We call setDependencies() on any new nodes...
+        self._set_dependencies_on_new_nodes()
 
-	if (iter != m_nodes.end())
-	{
-		return (*iter).second;
-	}
-	else
-	{
-		throw Exception("No such node " + id);
-	}
-}
+        # We calculate if some nodes have been marked as needing calculation since
+        # the last time we calculated...
+        if self._changed_nodes:
+            # We take a copy of the nodes requiring calculation, as
+            # new nodes may be added during the calculation process...
+            changed_nodes = self._changed_nodes.copy()
 
-/****************************************************************************
- hasNode
- -------
-****************************************************************************/
-bool GraphManager::hasNode(const std::string& id) const
-{
-	NodeMap::const_iterator it = m_nodes.find(id);
-	return it != m_nodes.end() && it->second != NULL;
-}
+            # Clear recalculate list...
+            self._changed_nodes.clear()
 
-/****************************************************************************
- hasNode
- -------
- This tries to fild the GraphNode using the pointer. It iterates through
- all nodes, so this method can be slow.
-****************************************************************************/
-bool GraphManager::hasNode(GraphNode * pNode) const
-{
-    NodeMap::const_iterator it = m_nodes.begin();
-    NodeMap::const_iterator itEnd = m_nodes.end();
-    for(; it != itEnd; ++it)
-    {
-        GraphNode* pNode2 = it->second;
-        if (pNode == pNode2)
-        {
-            return true;
-        }
-    }
+            # Invalidate...
+            for node in changed_nodes:
+                node.invalidate(None)
 
-    return false;
-}
+            # Validate...
+            for node in changed_nodes:
+                node.validate()
 
-/****************************************************************************
- findNode
- --------
- Returns a pointer to the node identified by 'id' or 0.
-****************************************************************************/
-GraphNode* GraphManager::findNode(const std::string& id) const
-{
-	NodeMap::const_iterator it = m_nodes.find(id);
-	return it != m_nodes.end() ? it->second : 0;
-}
+        # We clear out the collections of updated-parents from any nodes holding them...
+        self._clear_updated_parents()
 
-/****************************************************************************
- needsCalculation
- ----------------
- Indicates to the manager that the specified nodes needs (re)calculation.
- This is the only way to indicate that a node requires recalculation.
-****************************************************************************/
-void GraphManager::needsCalculation(GraphNode* node)
-{
-	node->m_needsCalculation = true;
-	m_changedNodes.insert(node);
-}
+        # We clear the collection of new-parents...
+        self._new_parents_this_calculation_cycle.clear()
+        self._mark_nodes_with_updated_late_parents()
 
-/****************************************************************************
- calculate
- ---------
- See comments above, and those on 'invalidate' and 'validate' in GraphNode.cpp
-****************************************************************************/
-void GraphManager::calculate()
-{
-	// Sets the calculating flag true for the lifetime of this function...
-	m_isCalculating = true;
+        # We garbage collect any unused nodes...
+        self.perform_gc()
 
-	// We call setDependencies() on any new nodes...
-	setDependenciesOnNewNodes();
-
-	// No nodes have been marked as needing calculation, there is nothing to do
-	if (m_changedNodes.empty() == false)
-	{
-		// Take a copy of the nodes requiring calculation
-		// New nodes may be added during the calculation process
-		NodeSet changedNodes = m_changedNodes;
-		NodeSet::const_iterator iter;
-
-		// Clear recalculate list
-		m_changedNodes.clear();
-
-		// Invalidate
-		for (iter = changedNodes.begin(); iter != changedNodes.end(); ++iter)
-		{
-			(*iter)->invalidate(NULL);
-		}
-
-		// Validate
-		for (iter = changedNodes.begin(); iter != changedNodes.end(); ++iter)
-		{
-			(*iter)->validate();
-		}
-	}
-
-	// We clear out the collections of updated-parents from any nodes holding them...
-	clearUpdatedParents();
-
-	// We clear the collection of new-parents...
-	m_mapNewParentsThisCalculationCycle.clear();
-
-	markNodesWithUpdatedLateParents();
-
-	// We garbage collect any unused nodes...
-	performGC();
-
-	m_isCalculating = false;
-}
+        self._is_calculating = False
 
 /*===========================================================================
  updateGCInfoForNode
@@ -358,11 +263,11 @@ void GraphManager::updateGCInfoForNode(GraphNode* pNode)
 {
 	if(pNode->m_gcType == GraphNode::NON_COLLECTABLE)
 	{
-		m_nonCollectableNodes.insert(pNode);
+		m_nonCollectableNodes.insert(pNode)
 	}
 	else
 	{
-		m_nonCollectableNodes.erase(pNode); // Note: this can be called even if the node is not in the set.
+		m_nonCollectableNodes.erase(pNode) # Note: this can be called even if the node is not in the set.
 	}
 }
 
@@ -376,44 +281,44 @@ void GraphManager::performGC()
 {
 	if(m_gcEnabled == false || m_gcRequired == false)
 	{
-		return;
+		return
 	}
-	m_gcRequired = false;
+	m_gcRequired = false
 
-	// To perform GC we start with two collections of nodes:
-	// - The set of all nodes in the graph ("all-nodes")
-	// - The set of all non-collectable nodes ("non-collectable nodes")
-	//
-	// For each non-collectable node, we up walk the graph starting with
-	// the non-collectable node to find all its parent nodes. Any nodes
-	// we find are removed from the all-nodes collection.
-	//
-	// When we have processed all the non-collectable nodes, any nodes remaining
-	// in the all-nodes collection are ones which are not the ancestor of any
-	// non-collectable node. They are then all removed from the graph and deleted.
+	# To perform GC we start with two collections of nodes:
+	# - The set of all nodes in the graph ("all-nodes")
+	# - The set of all non-collectable nodes ("non-collectable nodes")
+	#
+	# For each non-collectable node, we up walk the graph starting with
+	# the non-collectable node to find all its parent nodes. Any nodes
+	# we find are removed from the all-nodes collection.
+	#
+	# When we have processed all the non-collectable nodes, any nodes remaining
+	# in the all-nodes collection are ones which are not the ancestor of any
+	# non-collectable node. They are then all removed from the graph and deleted.
 
-	// We find the set of all nodes in the graph...
-	NodeSet allNodes;
-	NodeMap::const_iterator itm;
-	for(itm=m_nodes.begin(); itm!=m_nodes.end(); ++itm)
+	# We find the set of all nodes in the graph...
+	NodeSet allNodes
+	NodeMap::const_iterator itm
+	for(itm=m_nodes.begin() itm!=m_nodes.end() ++itm)
 	{
-		allNodes.insert(itm->second);
-	}
-
-	// We remove all ancestors of non-collectable nodes from the set of all-nodes...
-	NodeSet::const_iterator it;
-	for(it=m_nonCollectableNodes.begin(); it!=m_nonCollectableNodes.end(); ++it)
-	{
-		GraphNode* node = *it;
-		removeParentNodesFromSet(node, allNodes);
+		allNodes.insert(itm->second)
 	}
 
-	// Any nodes remaining can be deleted...
-	NodeSet::const_iterator itd;
-	for(itd=allNodes.begin(); itd!=allNodes.end(); ++itd)
+	# We remove all ancestors of non-collectable nodes from the set of all-nodes...
+	NodeSet::const_iterator it
+	for(it=m_nonCollectableNodes.begin() it!=m_nonCollectableNodes.end() ++it)
 	{
-		GraphNode* node = *itd;
-		deleteAndRemoveNode(node);
+		GraphNode* node = *it
+		removeParentNodesFromSet(node, allNodes)
+	}
+
+	# Any nodes remaining can be deleted...
+	NodeSet::const_iterator itd
+	for(itd=allNodes.begin() itd!=allNodes.end() ++itd)
+	{
+		GraphNode* node = *itd
+		deleteAndRemoveNode(node)
 	}
 }
 
@@ -427,16 +332,16 @@ void GraphManager::performGC()
 ===========================================================================*/
 void GraphManager::removeParentNodesFromSet(GraphNode* node, NodeSet& nodes)
 {
-	// We erase the node itself...
-	nodes.erase(node);
+	# We erase the node itself...
+	nodes.erase(node)
 
-	// We loop through the parents of the node, erasing them...
-	const NodeSet& parents = node->m_parents;
-	NodeSet::const_iterator it;
-	for(it=parents.begin(); it!=parents.end(); ++it)
+	# We loop through the parents of the node, erasing them...
+	const NodeSet& parents = node->m_parents
+	NodeSet::const_iterator it
+	for(it=parents.begin() it!=parents.end() ++it)
 	{
-		GraphNode* parent = *it;
-		removeParentNodesFromSet(parent, nodes);
+		GraphNode* parent = *it
+		removeParentNodesFromSet(parent, nodes)
 	}
 }
 
@@ -447,12 +352,12 @@ void GraphManager::removeParentNodesFromSet(GraphNode* node, NodeSet& nodes)
 ===========================================================================*/
 void GraphManager::deleteAndRemoveNode(GraphNode* node)
 {
-	const std::string& id = node->getID();
-	m_nodes.erase(id);
-	m_changedNodes.erase(node);
-	m_nonCollectableNodes.erase(node);
-	m_nodesWithUpdatedParents.erase(node);
-	delete node;
+	const std::string& id = node->getID()
+	m_nodes.erase(id)
+	m_changedNodes.erase(node)
+	m_nonCollectableNodes.erase(node)
+	m_nodesWithUpdatedParents.erase(node)
+	delete node
 }
 
 
@@ -466,59 +371,59 @@ void GraphManager::setDependenciesOnNewNodes()
 {
 	if(m_newNodeIDs.empty())
 	{
-		return;
+		return
 	}
 
-	// We copy the collection of new node IDs, as the act of setting up
-	// the dependencies may cause new nodes to be added in a re-entrant way...
-	NodeIDSet nodeIDs = m_newNodeIDs;
-	m_newNodeIDs.clear();
+	# We copy the collection of new node IDs, as the act of setting up
+	# the dependencies may cause new nodes to be added in a re-entrant way...
+	NodeIDSet nodeIDs = m_newNodeIDs
+	m_newNodeIDs.clear()
 
-	NodeIDSet::iterator it;
-	for(it=nodeIDs.begin(); it!=nodeIDs.end(); ++it)
+	NodeIDSet::iterator it
+	for(it=nodeIDs.begin() it!=nodeIDs.end() ++it)
 	{
-		const std::string& nodeID = *it;
+		const std::string& nodeID = *it
 
-		// We check that the node is in the graph. It is possible
-		// that is was added and removed before this function got
-		// called...
-		NodeMap::iterator itm = m_nodes.find(nodeID);
+		# We check that the node is in the graph. It is possible
+		# that is was added and removed before this function got
+		# called...
+		NodeMap::iterator itm = m_nodes.find(nodeID)
 		if(itm != m_nodes.end())
 		{
-			GraphNode* node = itm->second;
-			node->setDependencies();
+			GraphNode* node = itm->second
+			node->setDependencies()
 		}
 	}
 
-	// Setting the dependencies may have caused new nodes to be created. If so,
-	// they will needs setting up. We call this function recursively to set
-	// them up...
-	setDependenciesOnNewNodes();
+	# Setting the dependencies may have caused new nodes to be created. If so,
+	# they will needs setting up. We call this function recursively to set
+	# them up...
+	setDependenciesOnNewNodes()
 }
 
 void dsc::GraphManager::dump(std::vector<NodeDump>& target)
 {
-	// Iterate over all the nodes
-	for (NodeMap::const_iterator it = m_nodes.begin(); it != m_nodes.end(); ++it)
+	# Iterate over all the nodes
+	for (NodeMap::const_iterator it = m_nodes.begin() it != m_nodes.end() ++it)
 	{
-		const GraphNode* pNode = it->second;
-		// Add a node to the target vector
-		NodeDump node;
-		node.ID = pNode->getID();
-		node.Type = typeid(*pNode).name();
-		node.Status = pNode->getNodeStatus();
-		node.StatusMessage = pNode->getStatusMessage();
+		const GraphNode* pNode = it->second
+		# Add a node to the target vector
+		NodeDump node
+		node.ID = pNode->getID()
+		node.Type = typeid(*pNode).name()
+		node.Status = pNode->getNodeStatus()
+		node.StatusMessage = pNode->getStatusMessage()
 
-		// Add the parents' IDs to the node
-		const NodeSet& parents = pNode->m_parents;
-		for (NodeSet::const_iterator itP = parents.begin(); itP != parents.end(); ++itP)
+		# Add the parents' IDs to the node
+		const NodeSet& parents = pNode->m_parents
+		for (NodeSet::const_iterator itP = parents.begin() itP != parents.end() ++itP)
 		{
-			const GraphNode* pParent = *itP;
-			node.Parents.insert(pParent->getID());
+			const GraphNode* pParent = *itP
+			node.Parents.insert(pParent->getID())
 		}
 
-		// Insert it into the target container
-		target.push_back(node);
+		# Insert it into the target container
+		target.push_back(node)
 	}
 }
 
@@ -531,25 +436,25 @@ void dsc::GraphManager::dump(std::vector<NodeDump>& target)
 ==============================================================================*/
 void GraphManager::parentsUpdated(GraphNode* node, const NodeSet& newParents)
 {
-	// We store a map of new-parents -> child nodes.
-	// (See heading comment for more details.)
+	# We store a map of new-parents -> child nodes.
+	# (See heading comment for more details.)
 
-	// We only need to store new parents if we are in the
-	// calculation cycle...
+	# We only need to store new parents if we are in the
+	# calculation cycle...
 	if(m_isCalculating == false)
 	{
-		return;
+		return
 	}
 
-	// We note that the node passed in was updated by the parents
-	// passed in...
-	NodeSet::const_iterator it;
-	for(it=newParents.begin(); it!=newParents.end(); ++it)
+	# We note that the node passed in was updated by the parents
+	# passed in...
+	NodeSet::const_iterator it
+	for(it=newParents.begin() it!=newParents.end() ++it)
 	{
-		// We find the collection of child nodes for this
-		// new parent and add the child node to it...
-		GraphNode* pParent = *it;
-		m_mapNewParentsThisCalculationCycle[pParent].insert(node);
+		# We find the collection of child nodes for this
+		# new parent and add the child node to it...
+		GraphNode* pParent = *it
+		m_mapNewParentsThisCalculationCycle[pParent].insert(node)
 	}
 }
 
@@ -560,22 +465,22 @@ void GraphManager::parentsUpdated(GraphNode* node, const NodeSet& newParents)
 ==============================================================================*/
 void GraphManager::nodeCalculated(GraphNode* node)
 {
-	// We check if the node is a 'late-parent'.
-	// (See heading comment for details.)
-	MapNewParents::iterator it = m_mapNewParentsThisCalculationCycle.find(node);
+	# We check if the node is a 'late-parent'.
+	# (See heading comment for details.)
+	MapNewParents::iterator it = m_mapNewParentsThisCalculationCycle.find(node)
 	if(it == m_mapNewParentsThisCalculationCycle.end())
 	{
-		// This node has not been added as a parent to any other
-		// nodes (yet) in this calculation cycle...
-		return;
+		# This node has not been added as a parent to any other
+		# nodes (yet) in this calculation cycle...
+		return
 	}
 
-	// The node has been added as a parent to other nodes, but it has been
-	// calculated after them. So it is a 'late-parent'. We find the
-	// collection of child nodes that should have been triggered already
-	// and note that they need to be calculated in the next cycle...
-	NodeSet& childNodes = it->second;
-	m_nodesWithUpdatedLateParents[node] = childNodes;
+	# The node has been added as a parent to other nodes, but it has been
+	# calculated after them. So it is a 'late-parent'. We find the
+	# collection of child nodes that should have been triggered already
+	# and note that they need to be calculated in the next cycle...
+	NodeSet& childNodes = it->second
+	m_nodesWithUpdatedLateParents[node] = childNodes
 }
 
 /*==============================================================================
@@ -587,21 +492,21 @@ void GraphManager::nodeCalculated(GraphNode* node)
 ==============================================================================*/
 void GraphManager::markNodesWithUpdatedLateParents()
 {
-	for (MapNewParents::iterator it = m_nodesWithUpdatedLateParents.begin(); it != m_nodesWithUpdatedLateParents.end(); ++it)
+	for (MapNewParents::iterator it = m_nodesWithUpdatedLateParents.begin() it != m_nodesWithUpdatedLateParents.end() ++it)
 	{
-		GraphNode* pParent = it->first;
-		NodeSet& children = it->second;
+		GraphNode* pParent = it->first
+		NodeSet& children = it->second
 
-		// Mark the child nodes as needing calculation, and as triggered by the parent
-		for (NodeSet::iterator itChildren = children.begin(); itChildren != children.end(); ++itChildren)
+		# Mark the child nodes as needing calculation, and as triggered by the parent
+		for (NodeSet::iterator itChildren = children.begin() itChildren != children.end() ++itChildren)
 		{
-			GraphNode* pChild = *itChildren;
+			GraphNode* pChild = *itChildren
 
-			needsCalculation(pChild);
-			pChild->addUpdatedParent(pParent);
+			needsCalculation(pChild)
+			pChild->addUpdatedParent(pParent)
 		}
 	}
-	m_nodesWithUpdatedLateParents.clear();
+	m_nodesWithUpdatedLateParents.clear()
 }
 
 /*==============================================================================
@@ -612,7 +517,7 @@ void GraphManager::markNodesWithUpdatedLateParents()
 ==============================================================================*/
 void GraphManager::nodeHasUpdatedParents(GraphNode* pNode)
 {
-	m_nodesWithUpdatedParents.insert(pNode);
+	m_nodesWithUpdatedParents.insert(pNode)
 }
 
 /*==============================================================================
@@ -622,13 +527,13 @@ void GraphManager::nodeHasUpdatedParents(GraphNode* pNode)
 ==============================================================================*/
 void GraphManager::clearUpdatedParents()
 {
-	NodeSet::iterator it;
-	for(it=m_nodesWithUpdatedParents.begin(); it!=m_nodesWithUpdatedParents.end(); ++it)
+	NodeSet::iterator it
+	for(it=m_nodesWithUpdatedParents.begin() it!=m_nodesWithUpdatedParents.end() ++it)
 	{
-		GraphNode* pNode = *it;
-		pNode->clearUpdatedParents();
+		GraphNode* pNode = *it
+		pNode->clearUpdatedParents()
 	}
-	m_nodesWithUpdatedParents.clear();
+	m_nodesWithUpdatedParents.clear()
 }
 
 
