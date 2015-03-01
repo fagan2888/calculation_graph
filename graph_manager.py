@@ -1,4 +1,5 @@
 from .graph_exception import GraphException
+from .node_info import NodeInfo
 
 
 class GraphManager(object):
@@ -267,32 +268,31 @@ class GraphManager(object):
         # them up...
         self._set_dependencies_on_new_nodes()
 
-void dsc::GraphManager::dump(std::vector<NodeDump>& target)
-{
-	# Iterate over all the nodes
-	for (NodeMap::const_iterator it = m_nodes.begin() it != m_nodes.end() ++it)
-	{
-		const GraphNode* pNode = it->second
-		# Add a node to the target vector
-		NodeDump node
-		node.ID = pNode->getID()
-		node.Type = typeid(*pNode).name()
-		node.Status = pNode->getNodeStatus()
-		node.StatusMessage = pNode->getStatusMessage()
+    def dump(self):
+        """
+        Returns a list of NodeInfo objects, one for each node in the graph.
+        These hold information about each node which can be used for logging,
+        or to show a graphical representation of the graph.
+        """
+        # We iterate over all the nodes...
+        results = []
+        for node in self._nodes:
+            # We get the info for this node...
+            info = NodeInfo()
 
-		# Add the parents' IDs to the node
-		const NodeSet& parents = pNode->m_parents
-		for (NodeSet::const_iterator itP = parents.begin() itP != parents.end() ++itP)
-		{
-			const GraphNode* pParent = *itP
-			node.Parents.insert(pParent->getID())
-		}
+            # The main node info...
+            info.node_id = node.node_id
+            info.node_type = node.__class__.__name__
+            info.quality = node.quality
+            info.message = node.get_info_message()
 
-		# Insert it into the target container
-		target.push_back(node)
-	}
-}
+            # The IDs of the node's parents...
+            for parent in node.parents:
+                info.parent_ids.add(parent.node_id)
 
+            results.append(info)
+
+        return results
 
 /*==============================================================================
  parentsUpdated

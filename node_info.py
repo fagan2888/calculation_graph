@@ -1,7 +1,7 @@
 from .quality import Quality
 
 
-class NodeDump(object):
+class NodeInfo(object):
     """
     Holds information about one node in the graph.
 
