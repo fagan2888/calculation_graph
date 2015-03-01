@@ -240,46 +240,32 @@ class GraphManager(object):
 
         node.dispose()
 
+    def _set_dependencies_on_new_nodes(self):
+        """
+        Calls setDependencies() on any nodes that have been added since the
+        last calculation cycle.
+        """
+        if not self._new_node_ids:
+            # There are no new nodes...
+            return
 
-/*===========================================================================
- setDependenciesOnNewNodes
- -------------------------
- Calls setDependencies() on any nodes that have been added since the
- last calculation cycle.
-===========================================================================*/
-void GraphManager::setDependenciesOnNewNodes()
-{
-	if(m_newNodeIDs.empty())
-	{
-		return
-	}
+        # We copy the collection of new node IDs, as the act of setting up
+        # the dependencies may cause new nodes to be added in a re-entrant way...
+        node_ids = self._new_node_ids.copy()
+        self._new_node_ids.clear()
 
-	# We copy the collection of new node IDs, as the act of setting up
-	# the dependencies may cause new nodes to be added in a re-entrant way...
-	NodeIDSet nodeIDs = m_newNodeIDs
-	m_newNodeIDs.clear()
+        for node_id in node_ids:
+            # We check that the node is in the graph. It is possible
+            # that is was added and removed before this function got
+            # called...
+            if node_id in self._nodes:
+                node = self._nodes[node_id]
+                node.set_dependencies()
 
-	NodeIDSet::iterator it
-	for(it=nodeIDs.begin() it!=nodeIDs.end() ++it)
-	{
-		const std::string& nodeID = *it
-
-		# We check that the node is in the graph. It is possible
-		# that is was added and removed before this function got
-		# called...
-		NodeMap::iterator itm = m_nodes.find(nodeID)
-		if(itm != m_nodes.end())
-		{
-			GraphNode* node = itm->second
-			node->setDependencies()
-		}
-	}
-
-	# Setting the dependencies may have caused new nodes to be created. If so,
-	# they will needs setting up. We call this function recursively to set
-	# them up...
-	setDependenciesOnNewNodes()
-}
+        # Setting the dependencies may have caused new nodes to be created. If so,
+        # they will needs setting up. We call this function recursively to set
+        # them up...
+        self._set_dependencies_on_new_nodes()
 
 void dsc::GraphManager::dump(std::vector<NodeDump>& target)
 {
