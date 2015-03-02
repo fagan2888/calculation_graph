@@ -1,5 +1,6 @@
 from .graph_exception import GraphException
 from .node_info import NodeInfo
+from .graph_node import GraphNode
 
 
 class GraphManager(object):
@@ -73,7 +74,7 @@ class GraphManager(object):
         else:
             self._nodes[node.node_id] = node
             self.needs_calculation(node)
-            self.new_node_ids.add(node.node_id)
+            self._new_node_ids.add(node.node_id)
 
     def release_node(self, node):
         """
@@ -161,7 +162,7 @@ class GraphManager(object):
                 node.validate()
 
         # We clear out the collections of updated-parents from any nodes holding them...
-        self._clear_updated_parents()
+        self.clear_updated_parents()
 
         # We clear the collection of new-parents...
         self._new_parents_this_calculation_cycle.clear()
@@ -338,58 +339,33 @@ class GraphManager(object):
         child_nodes = self._new_parents_this_calculation_cycle[node]
         self._nodes_with_updated_late_parents[node] = child_nodes
 
-/*==============================================================================
- markNodesWithUpdatedLateParents
- -------------------------------
- Deferred action from above: any nodes for which there is a "late parent"
- (see header comments) are marked for calculation and notified that the
- relevant parent has changed.
-==============================================================================*/
-void GraphManager::markNodesWithUpdatedLateParents()
-{
-	for (MapNewParents::iterator it = m_nodesWithUpdatedLateParents.begin() it != m_nodesWithUpdatedLateParents.end() ++it)
-	{
-		GraphNode* pParent = it->first
-		NodeSet& children = it->second
+    def _mark_nodes_with_updated_late_parents(self):
+        """
+        Deferred action from above: any nodes for which there is a "late parent"
+        (see header comments) are marked for calculation and notified that the
+        relevant parent has changed.
+        """
+        for parent, children in self._nodes_with_updated_late_parents:
+            # Mark the child nodes as needing calculation, and as triggered by the parent...
+            for child in children:
+                self.needs_calculation(child)
+                child.add_updated_parent(parent)
+        self._nodes_with_updated_late_parents.clear()
 
-		# Mark the child nodes as needing calculation, and as triggered by the parent
-		for (NodeSet::iterator itChildren = children.begin() itChildren != children.end() ++itChildren)
-		{
-			GraphNode* pChild = *itChildren
+    def node_has_updated_parents(self, node):
+        """
+        Called when a updated-parent is added to a node. These need to be cleared out
+        at the end of the calculation cycle.
+        """
+        self._nodes_with_updated_parents.add(node)
 
-			needsCalculation(pChild)
-			pChild->addUpdatedParent(pParent)
-		}
-	}
-	m_nodesWithUpdatedLateParents.clear()
-}
-
-/*==============================================================================
- nodeHasUpdatedParents
- ---------------------
- Called when a updated-parent is added to a node. These need to be cleared out
- at the end of the calculation cycle.
-==============================================================================*/
-void GraphManager::nodeHasUpdatedParents(GraphNode* pNode)
-{
-	m_nodesWithUpdatedParents.insert(pNode)
-}
-
-/*==============================================================================
- clearUpdatedParents
- -------------------
- Clears the collection of updated-parents from all nodes which hold one.
-==============================================================================*/
-void GraphManager::clearUpdatedParents()
-{
-	NodeSet::iterator it
-	for(it=m_nodesWithUpdatedParents.begin() it!=m_nodesWithUpdatedParents.end() ++it)
-	{
-		GraphNode* pNode = *it
-		pNode->clearUpdatedParents()
-	}
-	m_nodesWithUpdatedParents.clear()
-}
+    def clear_updated_parents(self):
+        """
+        Clears the collection of updated-parents from all nodes which hold one.
+        """
+        for node in self._nodes_with_updated_parents:
+            node.clear_updated_parents()
+        self._nodes_with_updated_parents.clear()
 
 
 
