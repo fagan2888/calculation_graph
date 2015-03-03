@@ -58,8 +58,8 @@ class GraphManager(object):
         """
          We dispose all the nodes and we remove them from the dictionary.
         """
-        for key, value in self._nodes:
-            value.dispose()
+        for node_id, node in self._nodes:
+            node.cleanup()
 
         self._nodes.clear()
         self._non_collectable_nodes.clear()
@@ -94,7 +94,7 @@ class GraphManager(object):
         if ref_count == 0:
             # The node has no references to it, so we mark it as collectable
             # and set the flag so that a GC cycle will take place...
-            node.set_gc_type(GraphNode.COLLECTABLE)
+            node.set_gc_type(GraphNode.GCType.COLLECTABLE)
             self._gc_required = True
 
     def get_node(self, node_id):
@@ -178,7 +178,7 @@ class GraphManager(object):
         We update our set of non-collectable nodes depending on whether the node
         passed in is collectable or not.
         """
-        if node.gc_type == GraphNode.NON_COLLECTABLE:
+        if node.gc_type == GraphNode.GCType.NON_COLLECTABLE:
             self._non_collectable_nodes.add(node)
         else:
             if node in self._non_collectable_nodes:
@@ -246,7 +246,7 @@ class GraphManager(object):
         if node in self._nodes_with_updated_parents:
             self._nodes_with_updated_parents.remove(node)
 
-        node.dispose()
+        node.cleanup()
 
     def _set_dependencies_on_new_nodes(self):
         """
@@ -367,5 +367,17 @@ class GraphManager(object):
             node.clear_updated_parents()
         self._nodes_with_updated_parents.clear()
 
+    def get_node_count(self):
+        """
+        Return the number of nodes in the graph.
+        """
+        return len(self._nodes)
+
+    def link_removed(self):
+        """
+        Called by a node to tell the graph that it has removed
+        (unlinked) a parent link...
+        """
+        self._gc_required = True
 
 

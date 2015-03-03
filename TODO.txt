@@ -10,4 +10,9 @@ TODO: Should nodes themselves hold weak refs to parents? Only the GraphManager h
 
 TODO: GraphNode.get_info_message()
 
+TODO: Construct nodes, then set id, manager, environment, then call on_node_created(*args)
+
+TODO: For wiki. You don't need __init__ (on_node_create instead). But if you do, call super().__init().
+
+TODO: Add any inline functions from GraphNode.h
 
