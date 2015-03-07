@@ -289,7 +289,7 @@ class GraphManager(object):
 
             # The main node info...
             info.node_id = node.node_id
-            info.node_type = node.__class__.__name__
+            info.node_type = node.get_type()
             info.quality = node.quality
             info.message = node.get_info_message()
 

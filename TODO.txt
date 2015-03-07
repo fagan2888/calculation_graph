@@ -16,3 +16,7 @@ TODO: For wiki. You don't need __init__ (on_node_create instead). But if you do,
 
 TODO: Add any inline functions from GraphNode.h
 
+TODO: Have a get_type method on GraphNode, which you can override
+
+TODO: Add 'quality' member to GraphNode
+
