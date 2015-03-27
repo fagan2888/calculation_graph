@@ -1,4 +1,6 @@
 from .graph_exception import GraphException
+from .quality import Quality
+from .node_factory import NodeFactory
 
 
 # noinspection PyProtectedMember
@@ -33,6 +35,9 @@ class GraphNode(object):
         # which this graph and its nodes are used for...
         self.environment = None
 
+        # The quality of the data managed by this node...
+        self.quality = Quality()
+
         # The set of parent nodes...
         self._parents = set()
 
@@ -59,6 +64,34 @@ class GraphNode(object):
         self._gc_type = GraphNode.GCType.COLLECTABLE
         self._gc_ref_count = 0
 
+    @staticmethod
+    def make_node_id(*args):
+        """
+        Override this if you need to make the ID of the node yourself.
+
+        This method automatically creates the ID by stringifying the parameters
+        which identify the node. If this cannot be done, you should override the
+        method and create the ID yourself.
+
+        This static method is called by the add_parent_node "factory" function
+        to help find nodes based on their parameters.
+        """
+        if len(args) == 0:
+            node_id = "ID"
+        else:
+            node_id = "_".join((str(x) for x in args))
+        return node_id
+
+    @staticmethod
+    def get_type():
+        """
+        Returns the type (class name) of this node.
+
+        In some fairly rare cases you may want to override this in derived classes.
+        You might do this, for example, if you want to 'mock' a node.
+        """
+        return ""
+
     def cleanup(self):
         """
         Cleans up the node and calls dispose() on derived classes.
@@ -73,11 +106,6 @@ class GraphNode(object):
         resources to be cleaned up.
         """
         pass
-
-    def get_type(self):
-        """
-
-        """
 
     def set_dependencies(self):
         """
@@ -284,3 +312,23 @@ class GraphNode(object):
         """
         return self._gc_ref_count
 
+    def add_parent_node(self, node_type, *args, **kwargs):
+        """
+        Adds a parent node of the type passed in for the identity parameters
+        supplied.
+
+        kwargs can include:
+          auto_rebuild = True / False (defaults to False if not supplied)
+        """
+        #TODO: do the auto_rebuild thing
+
+        # We find the node...
+        node = NodeFactory.get_node(
+            self.graph_manager,
+            self.environment,
+            GraphNode.GCType.COLLECTABLE,
+            node_type,
+            *args,
+            **kwargs)
+        self.add_parent(node)
+        return node
