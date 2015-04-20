@@ -97,6 +97,12 @@ class GraphManager(object):
             node.set_gc_type(GraphNode.GCType.COLLECTABLE)
             self._gc_required = True
 
+    def get_node_count(self):
+        """
+        Returns the number of nodes in the graph.
+        """
+        return len(self._nodes)
+
     def get_node(self, node_id):
         """
         Returns the node with the ID passed in.
@@ -226,7 +232,7 @@ class GraphManager(object):
             nodes.remove(node)
 
         # We loop through the parents of the node, removing them...
-        parents = node.parents
+        parents = node._parents
         for parent in parents:
             self._remove_parent_nodes_from_set(parent, nodes)
 

@@ -59,7 +59,7 @@ class CurrencyPairHolidayNode(GraphNode):
         Adds dependencies on parent nodes.
         """
         self.currency1_holidays_node = self.add_parent_node(CurrencyHolidaysNode, self.currency1)
-        self.currency2_holidays_node = self.add_parent_node(CurrencyHolidaysNode, self.currency1)
+        self.currency2_holidays_node = self.add_parent_node(CurrencyHolidaysNode, self.currency2)
 
     def calculate(self):
         """
@@ -97,20 +97,30 @@ def test_simple_graph_1():
     usd_holidays_node.add_holiday(date(2014, 12, 25))
 
     # We create a node to tell us whether 2-Feb-2015 is a holiday...
-    pair_holiday_node_1 = NodeFactory.get_node(
+    eur_usd_holiday_node = NodeFactory.get_node(
         graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
         CurrencyPairHolidayNode,
         "EUR", "USD", date(2015, 2, 2))
 
     # We calculate the graph, and check the holiday...
     graph_manager.calculate()
-    assert pair_holiday_node_1.is_holiday is False
+    assert eur_usd_holiday_node.is_holiday is False
 
     # We add 2-Feb-2015 as a holiday to EUR, and calculate again...
     eur_holidays_node.add_holiday(date(2015, 2, 2))
     graph_manager.calculate()
-    assert pair_holiday_node_1.is_holiday is True
+    assert eur_usd_holiday_node.is_holiday is True
 
+    # We check that releasing nodes works.
+    # First we release the parent nodes. As the child node still needs
+    # them, they should remain in the graph...
+    graph_manager.release_node(eur_holidays_node)
+    graph_manager.release_node(usd_holidays_node)
+    graph_manager.calculate()
+    assert graph_manager.get_node_count() == 3
 
-
-
+    # We now release the child node. As there are no more references to
+    # any of the nodes, they should all be cleaned up...
+    graph_manager.release_node(eur_usd_holiday_node)
+    graph_manager.calculate()
+    assert graph_manager.get_node_count() == 0
