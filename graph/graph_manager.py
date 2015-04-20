@@ -130,7 +130,7 @@ class GraphManager(object):
         """
         Marks the node passed in for (re)calculation.
         """
-        node.needs_calculation = True
+        node._needs_calculation = True
         self._changed_nodes.add(node)
 
     def calculate(self):
@@ -178,7 +178,7 @@ class GraphManager(object):
         We update our set of non-collectable nodes depending on whether the node
         passed in is collectable or not.
         """
-        if node.gc_type == GraphNode.GCType.NON_COLLECTABLE:
+        if node._gc_type == GraphNode.GCType.NON_COLLECTABLE:
             self._non_collectable_nodes.add(node)
         else:
             if node in self._non_collectable_nodes:

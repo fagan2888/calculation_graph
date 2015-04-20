@@ -21,19 +21,19 @@ class GraphNode(object):
         CALCULATE_CHILDREN = 1
         DO_NOT_CALCULATE_CHILDREN = 2
 
-    def __init__(self):
+    def __init__(self, node_id, graph_manager, environment, *args, **kwargs):
         """
         The 'constructor'.
         """
         # The node's unique ID in the graph...
-        self.node_id = ""
+        self.node_id = node_id
 
         # The graph manager...
-        self.graph_manager = None
+        self.graph_manager = graph_manager
 
         # The environment. This can be any object useful for the particular application
         # which this graph and its nodes are used for...
-        self.environment = None
+        self.environment = environment
 
         # The quality of the data managed by this node...
         self.quality = Quality()
@@ -115,9 +115,9 @@ class GraphNode(object):
 
     def calculate(self):
         """
-        Must be implemented by derived classes.
+        Should be implemented by derived classes if they perform any calculations.
         """
-        raise GraphException("calculate() must be implemented by classes derived from GraphNode")
+        return GraphNode.CalculateChildrenType.CALCULATE_CHILDREN
 
     def get_info_message(self):
         """
@@ -233,7 +233,7 @@ class GraphNode(object):
                 # If this node's value has changed, force the needsCalculation
                 # flag in the child node...
                 if calculate_children == GraphNode.CalculateChildrenType.CALCULATE_CHILDREN:
-                    child_node._needsCalculation = True
+                    child_node._needs_calculation = True
 
                 # We tell the child node that this parent has calculated...
                 child_node.validate()

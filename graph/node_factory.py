@@ -15,20 +15,15 @@ class NodeFactory(object):
         node_type_name = node_type.get_type()
         if not node_type_name:
             node_type_name = node_type.__name__
-        node_id = node_type_name + "." + node_type.make_id(*args)
+        node_id = node_type_name + "." + node_type.make_node_id(*args)
 
         # We check if the node is already in the graph and create it
         ## if it is not...
         node = graph_manager.find_node(node_id)
         if node is None:
-            # We create the new node 'manually' so that we can set the
-            # graph-manager, environment and ID in the base class without
-            # having to pass them to the derived class's constructor...
-            node = object.__new__(node_type, *args, **kwargs)
-            node.graph_manager = graph_manager
-            node.environment = environment
-            node.node_id = node_id
-            node.__init__(*args, **kwargs)
+            # We create the new node...
+            args = args + (node_id, graph_manager, environment,)
+            node = node_type(*args, **kwargs)
 
             # We add the node to the graph...
             graph_manager.add_node(node)
