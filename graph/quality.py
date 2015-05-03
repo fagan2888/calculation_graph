@@ -19,7 +19,12 @@ class Quality(object):
         # The string description...
         self.description = ""
 
-
+    def clear_to_good(self):
+        """
+        Sets the quality to Good.
+        """
+        self.quality = Quality.GOOD
+        self.description = ""
 
 
 
