@@ -30,3 +30,9 @@ def test_simple_graph_1():
     graph_manager.calculate()
     assert holiday_node.is_holiday is True
     assert holiday_node.quality.is_good() is True
+
+    # We remove the USD holiday...
+    holiday_db.remove_holiday("USD", date(2015, 7, 4))
+    graph_manager.calculate()
+    assert holiday_node.is_holiday is False
+    assert holiday_node.quality.is_good() is True
