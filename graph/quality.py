@@ -17,14 +17,31 @@ class Quality(object):
         self._quality = Quality.BAD
 
         # The string descriptions...
-        self.descriptions = set()
+        self._descriptions = set()
+
+    def __eq__(self, other):
+        """
+        Returns True if this object is the same as other.
+        """
+        if self._quality != other._quality:
+            return False
+        if self._descriptions != other._descriptions:
+            return False
+        return True
 
     def clear_to_good(self):
         """
         Sets the quality to Good.
         """
         self._quality = Quality.GOOD
-        self.descriptions.clear()
+        self._descriptions.clear()
+
+    def set_from(self, other):
+        """
+        Sets our state from 'other'.
+        """
+        self._quality = other._quality
+        self._descriptions = set(other._descriptions)
 
     def get_quality(self):
         """
@@ -36,7 +53,13 @@ class Quality(object):
         """
         Returns a string description by joining the set of descriptions.
         """
-        return "; ".join(self.descriptions)
+        return "; ".join(self._descriptions)
+
+    def is_good(self):
+        """
+        Returns True if the quality is GOOD.
+        """
+        return (self._quality == Quality.GOOD)
 
     def merge(self, quality, description=None):
         """
@@ -49,11 +72,11 @@ class Quality(object):
         if description is not None:
             # a. We have a quality and description...
             self._merge_quality(quality)
-            self.descriptions.add(description)
+            self._descriptions.add(description)
         else:
             # b. We are merging another Quality object...
-            self._merge_quality(quality.quality)
-            self.descriptions |= quality.descriptions
+            self._merge_quality(quality._quality)
+            self._descriptions |= quality._descriptions
 
     def _merge_quality(self, quality):
         """

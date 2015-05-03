@@ -33,6 +33,8 @@ class HolidayDatabase(Observable):
         """
         Constructor.
         """
+        super().__init__()
+
         # A dictionary of CurrencyHoliday objects, keyed by currency...
         self._holidays = {}
 

@@ -4,7 +4,7 @@ from .holiday_database import HolidayDatabase
 
 class CurrencyHolidaysNode(GraphNode):
     """
-    Holds the collection of holidays for one currency.
+    Manages the collection of holidays for one currency.
     """
     def __init__(self, currency, *args, **kwargs):
         """
@@ -16,7 +16,7 @@ class CurrencyHolidaysNode(GraphNode):
         self.currency = currency
 
         # The collection of holidays for the currency...
-        self._holidays = set()
+        self.holidays = set()
 
         # We observe changes to the holidays...
         self.holiday_db = HolidayDatabase.get_instance()
@@ -40,6 +40,16 @@ class CurrencyHolidaysNode(GraphNode):
         """
         # We find the collection of holidays for the currency we are managing...
         currency_holidays = self.holiday_db.get_currency_holidays(self.currency)
+
+        # We check if the data has changed...
+        if (self.holidays != currency_holidays.holidays) or (self.quality != currency_holidays.quality):
+            # The data has changed, so we store it and calculate our children...
+            self.holidays = set(currency_holidays.holidays)
+            self.quality.set_from(currency_holidays.quality)
+            return GraphNode.CalculateChildrenType.CALCULATE_CHILDREN
+        else:
+            # Nothing has changed...
+            return GraphNode.CalculateChildrenType.DO_NOT_CALCULATE_CHILDREN
 
 
 
