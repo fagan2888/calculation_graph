@@ -44,7 +44,7 @@ class CurrencyHolidaysNode(GraphNode):
         # We check if the data has changed...
         if (self.holidays != currency_holidays.holidays) or (self.quality != currency_holidays.quality):
             # The data has changed, so we store it and calculate our children...
-            self.holidays = set(currency_holidays.holidays)
+            self.holidays = currency_holidays.holidays.copy()
             self.quality.set_from(currency_holidays.quality)
             return GraphNode.CalculateChildrenType.CALCULATE_CHILDREN
         else:

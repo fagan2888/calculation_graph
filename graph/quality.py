@@ -41,7 +41,7 @@ class Quality(object):
         Sets our state from 'other'.
         """
         self._quality = other._quality
-        self._descriptions = set(other._descriptions)
+        self._descriptions = other._descriptions.copy()
 
     def get_quality(self):
         """
