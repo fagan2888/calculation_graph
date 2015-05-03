@@ -23,7 +23,7 @@ class GraphNode(object):
 
     def __init__(self, node_id, graph_manager, environment, *args, **kwargs):
         """
-        The 'constructor'.
+        The constructor.
         """
         # The node's unique ID in the graph...
         self.node_id = node_id

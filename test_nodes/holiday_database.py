@@ -49,7 +49,7 @@ class HolidayDatabase(Observable):
         """
         Adds a holiday to the collection for the currency.
         """
-        currency_holidays = self._get_currency_holidays(currency)
+        currency_holidays = self.get_currency_holidays(currency)
         currency_holidays.holidays.add(holiday)
         self.update_observers()
 
@@ -57,7 +57,7 @@ class HolidayDatabase(Observable):
         """
         Removes a holiday from the collection for the currency.
         """
-        currency_holidays = self._get_currency_holidays(currency)
+        currency_holidays = self.get_currency_holidays(currency)
         currency_holidays.holidays.remove(holiday)
         self.update_observers()
 
@@ -67,7 +67,7 @@ class HolidayDatabase(Observable):
         """
         self._holidays.clear()
 
-    def _get_currency_holidays(self, currency):
+    def get_currency_holidays(self, currency):
         """
         Finds or creates the CurrencyHolidays object for the currency passed in.
         """
