@@ -3,11 +3,12 @@ from test_nodes import *
 from datetime import date
 
 
-def test_simple_graph_1():
+def test_currency_pair_holiday_1():
     """
     We create an EUR/USD holiday node and check that it correctly tells us
     whether a date is a holiday or not.
     """
+    # We create graph with a currency-pair holiday node...
     graph_manager = GraphManager()
     holiday_node = NodeFactory.get_node(
         graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
