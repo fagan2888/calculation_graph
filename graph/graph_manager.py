@@ -48,6 +48,14 @@ class GraphManager(object):
         # True if we are in the calculate cycle...
         self._is_calculating = False
 
+        # If set to true, then we clear the has_calculated flags from all
+        # nodes before the calculation cycle.
+        #
+        # This is useful in testing, to help see which nodes have calculated.
+        # Outside testing it is inefficient, as it has to loop over all nodes
+        # in the graph, so should not be used.
+        self.use_has_calculated_flags = False
+
     def dispose(self):
         """
         The 'destructor'.
@@ -58,7 +66,7 @@ class GraphManager(object):
         """
          We dispose all the nodes and we remove them from the dictionary.
         """
-        for node_id, node in self._nodes:
+        for node_id, node in self._nodes.items():
             node.cleanup()
 
         self._nodes.clear()
@@ -143,6 +151,11 @@ class GraphManager(object):
         """
         Calculates the graph.
         """
+        # We clear the has_calculated flag on all nodes...
+        if self.use_has_calculated_flags is True:
+            for node_id, node in self._nodes.items():
+                node.has_calculated = False
+
         # Sets the calculating flag true for the lifetime of this function...
         self._is_calculating = True
 

@@ -10,6 +10,7 @@ def test_currency_pair_holiday_1():
     """
     # We create graph with a currency-pair holiday node...
     graph_manager = GraphManager()
+    graph_manager.use_has_calculated_flags = True
     holiday_node = NodeFactory.get_node(
         graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
         CurrencyPairHolidayNode, "EUR/USD", date(2015, 7, 4))
@@ -18,6 +19,7 @@ def test_currency_pair_holiday_1():
     graph_manager.calculate()
     assert holiday_node.is_holiday is False
     assert holiday_node.quality.is_good() is True
+    assert holiday_node.has_calculated is True
 
     # We add an EUR holiday (but not for the date we are interested in)...
     holiday_db = HolidayDatabase.get_instance()
@@ -25,15 +27,26 @@ def test_currency_pair_holiday_1():
     graph_manager.calculate()
     assert holiday_node.is_holiday is False
     assert holiday_node.quality.is_good() is True
+    assert holiday_node.has_calculated is True
+
+    # We add a GBP holiday. This should have no effect on the holiday,
+    # and the node should not have calculated...
+    holiday_db.add_holiday("GBP", date(2015, 7, 4))
+    graph_manager.calculate()
+    assert holiday_node.is_holiday is False
+    assert holiday_node.quality.is_good() is True
+    assert holiday_node.has_calculated is False
 
     # We add a USD holiday for the 4-July...
     holiday_db.add_holiday("USD", date(2015, 7, 4))
     graph_manager.calculate()
     assert holiday_node.is_holiday is True
     assert holiday_node.quality.is_good() is True
+    assert holiday_node.has_calculated is True
 
     # We remove the USD holiday...
     holiday_db.remove_holiday("USD", date(2015, 7, 4))
     graph_manager.calculate()
     assert holiday_node.is_holiday is False
     assert holiday_node.quality.is_good() is True
+    assert holiday_node.has_calculated is True

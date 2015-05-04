@@ -64,6 +64,12 @@ class GraphNode(object):
         self._gc_type = GraphNode.GCType.COLLECTABLE
         self._gc_ref_count = 0
 
+        # Indicates whether the node has calculated in the most recent
+        # calculation cycle.
+        # Note: This flag is only valid if the graph-manager's use_has_calculated_flags
+        #       property is True.
+        self.has_calculated = False
+
     @staticmethod
     def make_node_id(*args):
         """
@@ -250,13 +256,14 @@ class GraphNode(object):
                 # We do the calculation itself...
                 calculate_children = self.calculate()
                 self._needs_calculation = False
+                self.has_calculated = True
 
                 # We tell the graph-manager that the node has been calculated...
                 self.graph_manager.node_calculated(self)
 
             # We calculate our child nodes...
             for child_node in self._child_nodes_for_this_calculation_cycle:
-                # If this node's value has changed, force the needsCalculation
+                # If this node's value has changed, force the _needs_calculation
                 # flag in the child node...
                 if calculate_children == GraphNode.CalculateChildrenType.CALCULATE_CHILDREN:
                     child_node._needs_calculation = True
