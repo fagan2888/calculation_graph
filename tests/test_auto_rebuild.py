@@ -5,7 +5,7 @@ from datetime import date
 
 class PriceForHolidayNode(GraphNode):
     """
-    Calculates the price for a holiday.
+    Calculates the price for a date which is a holiday.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -14,7 +14,7 @@ class PriceForHolidayNode(GraphNode):
 
 class PriceForNonHolidayNode(GraphNode):
     """
-    Calculates the price for a holiday.
+    Calculates the price for a date which is not a holiday.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -23,8 +23,8 @@ class PriceForNonHolidayNode(GraphNode):
 
 class PriceNode(GraphNode):
     """
-    Calculates a 'price' depending one whether a date is a holiday or not.
-    It uses different parent nodes in each case.
+    Calculates a 'price' depending one whether the date we are managing
+    is a holiday or not. It uses different parent nodes in each case.
     """
     def __init__(self, currency_pair, date, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -202,7 +202,7 @@ class GraphNode(object):
         """
         while len(self._child_nodes) > 0:
             node = self._child_nodes.pop()
-            node._parents.remove(self)
+            node._parent_nodes.remove(self)
 
     def has_children(self):
         """
