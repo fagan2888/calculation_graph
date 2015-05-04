@@ -20,6 +20,10 @@ class CurrencyPairHolidayNode(GraphNode):
         # Whether this date is a holiday for the pair...
         self.is_holiday = False
 
+        # We hold the last known data-quality, as we only calculate children
+        # if the holiday or the quality has changed...
+        self._previous_quality = Quality()
+
         # Parent nodes...
         self._currency1_holidays_node = None
         self._currency2_holidays_node = None
@@ -48,15 +52,10 @@ class CurrencyPairHolidayNode(GraphNode):
         if self.date in self._currency2_holidays_node.holidays:
             new_is_holiday = True
 
-        new_quality = Quality()
-        new_quality.clear_to_good()
-        new_quality.merge(self._currency1_holidays_node.quality)
-        new_quality.merge(self._currency2_holidays_node.quality)
-
-        if (self.is_holiday != new_is_holiday) or (self.quality != new_quality):
+        if (self.is_holiday != new_is_holiday) or (self.quality != self._previous_quality):
             # The data has changed...
             self.is_holiday = new_is_holiday
-            self.quality.set_from(new_quality)
+            self._previous_quality.set_from(self.quality)
             return GraphNode.CalculateChildrenType.CALCULATE_CHILDREN
         else:
             # The data has not changed...

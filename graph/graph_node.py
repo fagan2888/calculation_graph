@@ -39,15 +39,15 @@ class GraphNode(object):
         self.quality = Quality()
 
         # The set of parent nodes...
-        self._parents = set()
+        self._parent_nodes = set()
 
         # The set of child nodes...
-        self._children = set()
+        self._child_nodes = set()
 
         # The set of child nodes to be calculated during one calculation cycle.
-        # When we calculate, we first take a copy of the _children (above), as
+        # When we calculate, we first take a copy of the _child_nodes (above), as
         # the set may change during calculation...
-        self._calc_children = set()
+        self._child_nodes_for_this_calculation_cycle = set()
 
         # The number of parent nodes which have caused this node to calculate during
         # one calculation cycle...
@@ -96,8 +96,8 @@ class GraphNode(object):
         """
         Cleans up the node and calls dispose() on derived classes.
         """
-        self.remove_parents()
-        self.remove_children()
+        self.remove_parent_nodes()
+        self.remove_child_nodes()
         self.dispose()
 
     def dispose(self):
@@ -112,6 +112,24 @@ class GraphNode(object):
         Should be implemented by derived classes, if they depend on any parent nodes.
         """
         pass
+
+    def pre_calculate(self):
+        """
+        Called just before calculation. You may want to implement this if you
+        need to do any custom resetting of dependencies.
+        """
+        pass
+
+    def calculate_quality(self):
+        """
+        Called after pre_calculate() and before calculate().
+
+        Merges data quality from parent nodes. You should override this if you
+        need to calculate quality in a custom way.
+        """
+        self.quality.clear_to_good()
+        for parent_node in self._parent_nodes:
+            self.quality.merge(parent_node.quality)
 
     def calculate(self):
         """
@@ -131,21 +149,21 @@ class GraphNode(object):
         Adds a parent node for this node and updates the child node collection
         of the parent
         """
-        if node not in self._parents:
-            self._parents.add(node)
-            node._children.add(self)
+        if node not in self._parent_nodes:
+            self._parent_nodes.add(node)
+            node._child_nodes.add(self)
 
     def remove_parent(self, node):
         """
         Removes a parent node for this node and update the child node collection
         of the parent.
         """
-        if node not in self._parents:
+        if node not in self._parent_nodes:
             return  # The node passed in is not one of our parent nodes.
 
         # We remove the parent, and remove us as a child from the parent...
-        self._parents.remove(node)
-        node._children.remove(self)
+        self._parent_nodes.remove(node)
+        node._child_nodes.remove(self)
 
         # We mark the graph as needing garbage collection, as removing
         # the parent link may leave unreferenced nodes...
@@ -156,9 +174,9 @@ class GraphNode(object):
         Removes all parent nodes for this node, also updates the child collections
         of the parents.
         """
-        while len(self._parents) > 0:
-            node = self._parents.pop()
-            node._children.remove(self)
+        while len(self._parent_nodes) > 0:
+            node = self._parent_nodes.pop()
+            node._child_nodes.remove(self)
 
         # We mark the graph as needing garbage collection, as removing
         # the parents may leave unreferenced nodes...
@@ -169,15 +187,15 @@ class GraphNode(object):
         Removes all child nodes for this node, also updates the parent collections
         of the children.
         """
-        while len(self._children) > 0:
-            node = self._children.pop()
+        while len(self._child_nodes) > 0:
+            node = self._child_nodes.pop()
             node._parents.remove(self)
 
     def has_children(self):
         """
         True if this node has any child nodes.
         """
-        return len(self._children) > 0
+        return len(self._child_nodes) > 0
 
     def invalidate(self, parent):
         """
@@ -199,8 +217,8 @@ class GraphNode(object):
 
             # Capture child set, as this may change as a result of calculation, and
             # make recursive call for each node in captured child set
-            self._calc_children = self._children.copy()
-            for node in self._calc_children:
+            self._child_nodes_for_this_calculation_cycle = self._child_nodes.copy()
+            for node in self._child_nodes_for_this_calculation_cycle:
                 node.invalidate(self)
 
     def validate(self):
@@ -222,6 +240,14 @@ class GraphNode(object):
             # output value if necessary...
             calculate_children = GraphNode.CalculateChildrenType.DO_NOT_CALCULATE_CHILDREN
             if self._needs_calculation is True:
+                # We call pre-calculate. (This allows the node to do custom
+                # resetting of dependencies.)
+                self.pre_calculate()
+
+                # We merge data-quality...
+                self.calculate_quality()
+
+                # We do the calculation itself...
                 calculate_children = self.calculate()
                 self._needs_calculation = False
 
@@ -229,7 +255,7 @@ class GraphNode(object):
                 self.graph_manager.node_calculated(self)
 
             # We calculate our child nodes...
-            for child_node in self._calc_children:
+            for child_node in self._child_nodes_for_this_calculation_cycle:
                 # If this node's value has changed, force the needsCalculation
                 # flag in the child node...
                 if calculate_children == GraphNode.CalculateChildrenType.CALCULATE_CHILDREN:
@@ -245,7 +271,7 @@ class GraphNode(object):
         # We need to know if any new parents have been added to this node
         # by this reset-dependencies operation. So we note the collection
         # before and after setting them up...
-        parents_before_reset = self._parents.copy()
+        parents_before_reset = self._parent_nodes.copy()
 
         # We remove any existing parents, and add the new ones...
         self.remove_parents()
@@ -255,7 +281,7 @@ class GraphNode(object):
         # weren't before, and we tell the graph-manager about them. (This
         # is used to ensure that nodes are correctly calculated if the graph
         # changes shape during the calculation-cycle.)
-        new_parents = self._parents.difference(parents_before_reset)
+        new_parents = self._parent_nodes.difference(parents_before_reset)
         self.graph_manager.parents_updated(self, new_parents)
 
     def parent_updated(self, parent):
