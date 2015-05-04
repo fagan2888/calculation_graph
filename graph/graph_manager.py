@@ -245,7 +245,7 @@ class GraphManager(object):
             nodes.remove(node)
 
         # We loop through the parents of the node, removing them...
-        parents = node._parents
+        parents = node._parent_nodes
         for parent in parents:
             self._remove_parent_nodes_from_set(parent, nodes)
 

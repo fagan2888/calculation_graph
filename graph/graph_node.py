@@ -70,6 +70,10 @@ class GraphNode(object):
         #       property is True.
         self.has_calculated = False
 
+        # We automatically reset dependencies if any of these
+        # nodes has updated in the current calculation cycle...
+        self._auto_rebuild_nodes = set()
+
     @staticmethod
     def make_node_id(*args):
         """
@@ -102,8 +106,8 @@ class GraphNode(object):
         """
         Cleans up the node and calls dispose() on derived classes.
         """
-        self.remove_parent_nodes()
-        self.remove_child_nodes()
+        self.remove_parents()
+        self.remove_children()
         self.dispose()
 
     def dispose(self):
@@ -124,7 +128,10 @@ class GraphNode(object):
         Called just before calculation. You may want to implement this if you
         need to do any custom resetting of dependencies.
         """
-        pass
+        # If any of the updated parent nodes is in the auto-rebuild collection,
+        # we reset dependencies...
+        if len(set.intersection(self._updated_parent_nodes, self._auto_rebuild_nodes)) > 0:
+            self.reset_dependencies()
 
     def calculate_quality(self):
         """
@@ -275,6 +282,10 @@ class GraphNode(object):
         """
         Asks node to recreate its dependencies on other nodes and data objects.
         """
+        # We clear the collection of nodes that cause an auto-reset.
+        # (It will be repopulated when the new dependencies are set up.)
+        self._auto_rebuild_nodes.clear()
+
         # We need to know if any new parents have been added to this node
         # by this reset-dependencies operation. So we note the collection
         # before and after setting them up...
@@ -353,8 +364,6 @@ class GraphNode(object):
         kwargs can include:
           auto_rebuild = True / False (defaults to False if not supplied)
         """
-        #TODO: do the auto_rebuild thing
-
         # We find the node...
         node = NodeFactory.get_node(
             self.graph_manager,
@@ -364,4 +373,11 @@ class GraphNode(object):
             *args,
             **kwargs)
         self.add_parent(node)
+
+        # If the optional auto_rebuild flag is set, we will automatically reset
+        # dependencies if this node has updated in a calculation cycle...
+        auto_rebuild = kwargs["auto_rebuild"] if "auto_rebuild" in kwargs else False
+        if auto_rebuild is True:
+            self._auto_rebuild_nodes.add(node)
+
         return node
