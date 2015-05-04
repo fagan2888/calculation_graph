@@ -2,8 +2,6 @@ TODO: Test manual merge of quality
 
 TODO: Test manual reset of dependencies
 
-TODO: Test number of nodes in graphs, including when nodes are GC'd
-
 TODO: Test dispose of GraphManager
 
 TODO: Test with an Environment, check that all nodes in the graph get it
