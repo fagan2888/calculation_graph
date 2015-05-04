@@ -47,7 +47,6 @@ def test_currency_pair_holiday_quality():
     assert root_node.has_calculated is False
 
     # We set USD holidays to have Bad quality...
-    holiday_db = HolidayDatabase.get_instance()
     holiday_db.set_quality("USD", Quality.BAD, "Bad data for USD")
     graph_manager.calculate()
     assert holiday_node.quality.is_good() is False
@@ -55,7 +54,6 @@ def test_currency_pair_holiday_quality():
     assert root_node.has_calculated is True
 
     # We set EUR holidays to have Bad quality...
-    holiday_db = HolidayDatabase.get_instance()
     holiday_db.set_quality("EUR", Quality.BAD, "Bad data for EUR")
     graph_manager.calculate()
     assert holiday_node.quality.is_good() is False
@@ -63,5 +61,26 @@ def test_currency_pair_holiday_quality():
     assert "Bad data for EUR" in holiday_node.quality.get_description()
     assert root_node.has_calculated is True
 
+    # We set EUR holidays Good...
+    holiday_db.set_quality("EUR", Quality.GOOD, "")
+    graph_manager.calculate()
+    assert holiday_node.quality.is_good() is False
+    assert "Bad data for USD" in holiday_node.quality.get_description()
+    assert "Bad data for EUR" not in holiday_node.quality.get_description()
+    assert root_node.has_calculated is True
+
+    # We set USD holidays Good...
+    holiday_db.set_quality("USD", Quality.GOOD, "")
+    graph_manager.calculate()
+    assert holiday_node.quality.is_good() is True
+    assert holiday_node.quality.get_description() == ""
+    assert root_node.has_calculated is True
+
+    # We set an info message for USD...
+    holiday_db.set_quality("USD", Quality.GOOD, "Info: USD data stale")
+    graph_manager.calculate()
+    assert holiday_node.quality.is_good() is True
+    assert "Info: USD data stale" in holiday_node.quality.get_description()
+    assert root_node.has_calculated is True
 
 
