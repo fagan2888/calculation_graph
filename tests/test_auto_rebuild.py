@@ -87,3 +87,8 @@ def test_auto_rebuild():
     holiday_db.add_holiday("USD", date(2015, 7, 4))
     graph_manager.calculate()
     assert price_node.price == 123.0
+
+    # We remove the holiday...
+    holiday_db.remove_holiday("USD", date(2015, 7, 4))
+    graph_manager.calculate()
+    assert price_node.price == 456.0

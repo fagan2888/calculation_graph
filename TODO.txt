@@ -1,5 +1,10 @@
-TODO: Should nodes themselves hold weak refs to parents? Only the GraphManager holds strong refs?
+TODO: Test manual merge of quality
 
-TODO: Merge Quality for nodes by default
+TODO: Test manual reset of dependencies
 
-TODO: auto_rebuild in kwargs. Rebuilds dependencies if this node is an updated parent/
+TODO: Test number of nodes in graphs, including when nodes are GC'd
+
+TODO: Test dispose of GraphManager
+
+
+
