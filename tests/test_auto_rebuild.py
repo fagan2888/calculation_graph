@@ -3,7 +3,7 @@ from test_nodes import *
 from datetime import date
 
 
-class PriceForHoliday(GraphNode):
+class PriceForHolidayNode(GraphNode):
     """
     Calculates the price for a holiday.
     """
@@ -12,7 +12,7 @@ class PriceForHoliday(GraphNode):
         self.price = 123.0
 
 
-class PriceForNonHoliday(GraphNode):
+class PriceForNonHolidayNode(GraphNode):
     """
     Calculates the price for a holiday.
     """
@@ -21,7 +21,7 @@ class PriceForNonHoliday(GraphNode):
         self.price = 456.0
 
 
-class Price(GraphNode):
+class PriceNode(GraphNode):
     """
     Calculates a 'price' depending one whether a date is a holiday or not.
     It uses different parent nodes in each case.
@@ -39,14 +39,19 @@ class Price(GraphNode):
         self.price = 0.0
 
     def set_dependencies(self):
-        # We find whether the date we are managing is a holiday...
-        self.holiday_node = self.add_parent_node(CurrencyPairHolidayNode, self.currency_pair, self.date)
+        # We find whether the date we are managing is a holiday.
+        # Because the price_node (below) depends on data from this node,
+        # we set auto_rebuild=True, to reset the dependencies if data
+        # from it changes...
+        self.holiday_node = self.add_parent_node(
+            CurrencyPairHolidayNode, self.currency_pair, self.date,
+            auto_rebuild=True)
 
         # We use a different price node depending on whether the date is a holiday or not...
         if self.holiday_node.is_holiday is True:
-            self.price_node = self.add_parent_node(PriceForHoliday)
+            self.price_node = self.add_parent_node(PriceForHolidayNode)
         else:
-            self.price_node = self.add_parent_node(PriceForHoliday)
+            self.price_node = self.add_parent_node(PriceForNonHolidayNode)
 
     def calculate(self):
         # We get the price from the active price node...
@@ -64,4 +69,21 @@ def test_auto_rebuild():
     We change the holiday information, and check that the nodes are
     hooked up correctly.
     """
-    pass
+    holiday_db = HolidayDatabase.get_instance()
+    holiday_db.clear()
+
+    graph_manager = GraphManager()
+    price_node = NodeFactory.get_node(
+        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        PriceNode, "EUR/USD", date(2015, 7, 4))
+
+    # We haven't set up any holidays yet, so we should get the
+    # non-holiday price...
+    graph_manager.calculate()
+    assert price_node.price == 456.0
+
+    # We set 4-July-2015 to be a USD holiday.
+    # We now expect to get the holiday price...
+    holiday_db.add_holiday("USD", date(2015, 7, 4))
+    graph_manager.calculate()
+    assert price_node.price == 123.0

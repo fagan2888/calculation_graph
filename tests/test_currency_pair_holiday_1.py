@@ -24,6 +24,9 @@ def test_currency_pair_holiday_1():
     We create an EUR/USD holiday node and check that it correctly tells us
     whether a date is a holiday or not.
     """
+    holiday_db = HolidayDatabase.get_instance()
+    holiday_db.clear()
+
     # We create a graph with a currency-pair holiday node...
     graph_manager = GraphManager()
     graph_manager.use_has_calculated_flags = True
@@ -39,7 +42,6 @@ def test_currency_pair_holiday_1():
 
     # We add an EUR holiday (but not for the date we are interested in),
     # so our node should not be calculated.
-    holiday_db = HolidayDatabase.get_instance()
     holiday_db.add_holiday("EUR", date(2015, 12, 25))
     graph_manager.calculate()
     assert holiday_node.is_holiday is False
