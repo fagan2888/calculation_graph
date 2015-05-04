@@ -19,10 +19,9 @@ class RootNode(GraphNode):
         self.pair_holiday_node = self.add_parent_node(CurrencyPairHolidayNode, self.currency_pair, self.date)
 
 
-def test_currency_pair_holiday_1():
+def test_currency_pair_holiday_quality():
     """
-    We create an EUR/USD holiday node and check that it correctly tells us
-    whether a date is a holiday or not.
+    Tests that quality is correctly merged through the graph.
     """
     # We create a graph with a currency-pair holiday node...
     graph_manager = GraphManager()
@@ -31,35 +30,38 @@ def test_currency_pair_holiday_1():
         graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
         RootNode, "EUR/USD", date(2015, 7, 4))
 
-    # At this point, no holidays have been set up. Quality should be good...
+    # Initial quality should be good...
     graph_manager.calculate()
     holiday_node = root_node.pair_holiday_node
-    assert holiday_node.is_holiday is False
+    assert holiday_node.quality.is_good() is True
+    assert holiday_node.quality.get_description() == ""
     assert root_node.has_calculated is True
 
-    # We add an EUR holiday (but not for the date we are interested in),
-    # so our node should not be calculated.
+    # We set GBP holidays to have Bad quality.
+    # This should not affect our node.
     holiday_db = HolidayDatabase.get_instance()
-    holiday_db.add_holiday("EUR", date(2015, 12, 25))
+    holiday_db.set_quality("GBP", Quality.BAD, "Bad data for GBP")
     graph_manager.calculate()
-    assert holiday_node.is_holiday is False
+    assert holiday_node.quality.is_good() is True
+    assert holiday_node.quality.get_description() == ""
     assert root_node.has_calculated is False
 
-    # We add a GBP holiday. This should have no effect on the holiday,
-    # and the node should not have calculated...
-    holiday_db.add_holiday("GBP", date(2015, 7, 4))
+    # We set USD holidays to have Bad quality...
+    holiday_db = HolidayDatabase.get_instance()
+    holiday_db.set_quality("USD", Quality.BAD, "Bad data for USD")
     graph_manager.calculate()
-    assert holiday_node.is_holiday is False
-    assert root_node.has_calculated is False
-
-    # We add a USD holiday for the 4-July...
-    holiday_db.add_holiday("USD", date(2015, 7, 4))
-    graph_manager.calculate()
-    assert holiday_node.is_holiday is True
+    assert holiday_node.quality.is_good() is False
+    assert "Bad data for USD" in holiday_node.quality.get_description()
     assert root_node.has_calculated is True
 
-    # We remove the USD holiday...
-    holiday_db.remove_holiday("USD", date(2015, 7, 4))
+    # We set EUR holidays to have Bad quality...
+    holiday_db = HolidayDatabase.get_instance()
+    holiday_db.set_quality("EUR", Quality.BAD, "Bad data for EUR")
     graph_manager.calculate()
-    assert holiday_node.is_holiday is False
+    assert holiday_node.quality.is_good() is False
+    assert "Bad data for USD" in holiday_node.quality.get_description()
+    assert "Bad data for EUR" in holiday_node.quality.get_description()
     assert root_node.has_calculated is True
+
+
+

@@ -63,6 +63,15 @@ class HolidayDatabase(Observable):
         currency_holidays.holidays.remove(holiday)
         self.update_observers()
 
+    def set_quality(self, currency, quality, description):
+        """
+        Sets the data-quality for a currency.
+        """
+        currency_holidays = self.get_currency_holidays(currency)
+        currency_holidays.quality.clear_to_good()
+        currency_holidays.quality.merge(quality, description)
+        self.update_observers()
+
     def clear(self):
         """
         Clears the collection of holidays.
