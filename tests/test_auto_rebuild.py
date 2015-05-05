@@ -69,12 +69,11 @@ def test_auto_rebuild():
     We change the holiday information, and check that the nodes are
     hooked up correctly.
     """
-    holiday_db = HolidayDatabase.get_instance()
-    holiday_db.clear()
-
     graph_manager = GraphManager()
+    graph_manager.environment = Environment()
+
     price_node = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         PriceNode, "EUR/USD", date(2015, 7, 4))
 
     # We haven't set up any holidays yet, so we should get the
@@ -84,6 +83,7 @@ def test_auto_rebuild():
 
     # We set 4-July-2015 to be a USD holiday.
     # We now expect to get the holiday price...
+    holiday_db = graph_manager.environment.holiday_db
     holiday_db.add_holiday("USD", date(2015, 7, 4))
     graph_manager.calculate()
     assert price_node.price == 123.0

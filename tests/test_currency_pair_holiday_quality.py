@@ -23,14 +23,13 @@ def test_currency_pair_holiday_quality():
     """
     Tests that quality is correctly merged through the graph.
     """
-    holiday_db = HolidayDatabase.get_instance()
-    holiday_db.clear()
-
     # We create a graph with a currency-pair holiday node...
     graph_manager = GraphManager()
+    graph_manager.environment = Environment()
     graph_manager.use_has_calculated_flags = True
+
     root_node = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         RootNode, "EUR/USD", date(2015, 7, 4))
 
     # Initial quality should be good...
@@ -42,6 +41,7 @@ def test_currency_pair_holiday_quality():
 
     # We set GBP holidays to have Bad quality.
     # This should not affect our node.
+    holiday_db = graph_manager.environment.holiday_db
     holiday_db.set_quality("GBP", Quality.BAD, "Bad data for GBP")
     graph_manager.calculate()
     assert holiday_node.quality.is_good() is True

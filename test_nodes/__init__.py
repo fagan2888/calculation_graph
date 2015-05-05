@@ -1,3 +1,4 @@
 from .currency_holidays_node import CurrencyHolidaysNode
 from .currency_pair_holiday_node import CurrencyPairHolidayNode
+from .environment import Environment
 from .holiday_database import HolidayDatabase

@@ -19,7 +19,7 @@ class CurrencyHolidaysNode(GraphNode):
         self.holidays = set()
 
         # We observe changes to the holidays...
-        self.holiday_db = HolidayDatabase.get_instance()
+        self.holiday_db = self.environment.holiday_db
         self.holiday_db.add_observer(self)
 
     def dispose(self):

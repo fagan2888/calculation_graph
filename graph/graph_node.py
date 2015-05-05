@@ -367,7 +367,6 @@ class GraphNode(object):
         # We find the node...
         node = NodeFactory.get_node(
             self.graph_manager,
-            self.environment,
             GraphNode.GCType.COLLECTABLE,
             node_type,
             *args,

@@ -5,7 +5,7 @@ class NodeFactory(object):
     graph manager.
     """
     @staticmethod
-    def get_node(graph_manager, environment, gc_type, node_type, *args, **kwargs):
+    def get_node(graph_manager, gc_type, node_type, *args, **kwargs):
         """
         """
         from .graph_node import GraphNode
@@ -22,7 +22,7 @@ class NodeFactory(object):
         node = graph_manager.find_node(node_id)
         if node is None:
             # We create the new node...
-            args = args + (node_id, graph_manager, environment,)
+            args = args + (node_id, graph_manager, graph_manager.environment,)
             node = node_type(*args, **kwargs)
 
             # We add the node to the graph...

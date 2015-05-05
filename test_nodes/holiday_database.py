@@ -5,16 +5,7 @@ from .observable import Observable
 class HolidayDatabase(Observable):
     """
     Holds collections of holidays (with quality) keyed by currency.
-
-    This class is a singleton so that it can be accessed by multiple nodes
-    without having to be passed around.
-
-    Note: Because it is a singleton, it is important to call clear() at the
-          start of each test.
     """
-
-    # The singleton instance...
-    _instance = None
 
     class CurrencyHolidays(object):
         """
@@ -41,15 +32,6 @@ class HolidayDatabase(Observable):
 
         # A dictionary of CurrencyHoliday objects, keyed by currency...
         self._holidays = {}
-
-    @staticmethod
-    def get_instance():
-        """
-        Returns the singleton instance.
-        """
-        if HolidayDatabase._instance is None:
-            HolidayDatabase._instance = HolidayDatabase()
-        return HolidayDatabase._instance
 
     def add_holiday(self, currency, holiday):
         """

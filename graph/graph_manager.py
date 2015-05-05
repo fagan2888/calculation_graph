@@ -56,6 +56,12 @@ class GraphManager(object):
         # in the graph, so should not be used.
         self.use_has_calculated_flags = False
 
+        # The 'environment' object. This is passed to all nodes as they are
+        # created. It can be any object that is useful to the nodes in a
+        # particular graph. For example, it could provide links to external
+        # data...
+        self.environment = None
+
     def dispose(self):
         """
         The 'destructor'.

@@ -2,9 +2,6 @@ TODO: Test manual merge of quality
 
 TODO: Test manual reset of dependencies
 
-TODO: Test with an Environment, check that all nodes in the graph get it
-      (Are we setting it in the right place?)
-
 TODO: Do graph-dump / visualization
 
 

@@ -20,37 +20,35 @@ def test_graph_dispose():
     """
     Disposes a graph and checks that all nodes have been cleaned up.
     """
-    holiday_db = HolidayDatabase.get_instance()
-    holiday_db.clear()
-
     graph_manager = GraphManager()
+    graph_manager.environment = Environment()
 
     # We add a number of nodes...
 
     # 3 nodes...
     pair_holiday_node_1 = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         CurrencyPairHolidayNode, "EUR/USD", date(2015, 2, 3))
 
     # 2 nodes...
     pair_holiday_node_2 = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         CurrencyPairHolidayNode, "GBP/USD", date(2015, 3, 4))
 
     # 1 node...
     test_node_1 = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         TestNode, "TestNode1")
 
     # Note: This should be the same as test_node_1...
     test_node_2 = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         TestNode, "TestNode1")
     assert test_node_1 is test_node_2
 
     # 1 node...
     test_node_3 = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         TestNode, "TestNode3")
 
     graph_manager.calculate()

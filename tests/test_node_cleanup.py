@@ -7,15 +7,13 @@ def test_nodes_no_longer_used():
     """
     Tests that nodes are cleaned up when they are no longer needed.
     """
-    holiday_db = HolidayDatabase.get_instance()
-    holiday_db.clear()
-
     graph_manager = GraphManager()
+    graph_manager.environment = Environment()
 
     # We create a EUR/USD holiday node. There should be three nodes in
     # the graph, ie EUR/USD, EUR and USD...
     eur_usd_node = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         CurrencyPairHolidayNode, "EUR/USD", date(2015, 4, 5))
     graph_manager.calculate()
     assert len(graph_manager._nodes) == 3
@@ -23,7 +21,7 @@ def test_nodes_no_longer_used():
     # We create a GBP/USD node. This will add two nodes: GBP/USD and GBP.
     # The USD node should be shared.
     gbp_usd_node_1 = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         CurrencyPairHolidayNode, "GBP/USD", date(2015, 5, 6))
     graph_manager.calculate()
     assert len(graph_manager._nodes) == 5
@@ -31,7 +29,7 @@ def test_nodes_no_longer_used():
     # We add a GBP/USD node for a different date. This adds one node,
     # and shares the rest...
     gbp_usd_node_2 = NodeFactory.get_node(
-        graph_manager, None, GraphNode.GCType.NON_COLLECTABLE,
+        graph_manager, GraphNode.GCType.NON_COLLECTABLE,
         CurrencyPairHolidayNode, "GBP/USD", date(2015, 6, 7))
     graph_manager.calculate()
     assert len(graph_manager._nodes) == 6
