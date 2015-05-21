@@ -56,6 +56,8 @@ class PriceNode(GraphNode):
     def calculate(self):
         # We get the price from the active price node...
         self.price = self.price_node.price
+        return GraphNode.CalculateChildrenType.CALCULATE_CHILDREN
+
 
 
 def test_auto_rebuild():

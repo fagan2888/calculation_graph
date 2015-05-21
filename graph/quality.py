@@ -31,10 +31,22 @@ class Quality(object):
 
     def clear_to_good(self):
         """
-        Sets the quality to Good.
+        Sets the quality to Good and clears the collection of descriptions.
         """
         self._quality = Quality.GOOD
         self._descriptions.clear()
+
+    def set_to_bad(self, description):
+        """
+        Sets the quality to Bad with the description passed in.
+
+        Note: Normally you would merge quality, to preserve any
+              other descriptions. Sometimes, though, you just need
+              to directly set the quality Bad with a known description.
+        """
+        self._quality = Quality.BAD
+        self._descriptions.clear()
+        self._descriptions.add(description)
 
     def set_from(self, other):
         """
